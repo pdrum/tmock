@@ -1,4 +1,5 @@
 from tmock import tmock
+from tmock.stubbing_dsl import given
 
 
 class TestMockEngine:
@@ -14,11 +15,21 @@ class TestMockEngine:
         assert isinstance(tmock(SampleClass), SampleClass)
         assert not isinstance(tmock(SampleClass), OtherClass)
 
-    def test_recording_calls_with_no_arg(self):
+    def test_recording_calls_with_no_arg(self, capsys):
         class SampleClass:
             def foo(self):
-                pass
+                print("foo")
 
         mocked_sample_class = tmock(SampleClass)
         mocked_sample_class.foo()
         assert len(mocked_sample_class.__tmock_state__.calls) == 1
+        assert capsys.readouterr().out == ""
+
+    def test_stubbing_call_with_no_arg_with_return_value(self):
+        class SampleClass:
+            def foo(self) -> int:
+                return 100
+
+        mocked_sample_class = tmock(SampleClass)
+        given(mocked_sample_class).when(lambda m: m.foo()).then_return(20)
+        assert mocked_sample_class.foo() == 20

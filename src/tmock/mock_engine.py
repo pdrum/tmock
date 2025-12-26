@@ -24,8 +24,8 @@ def tmock(cls: Type[T]) -> T:
                 return getattr(cls, name)
 
             if name in state.schema.properties:
-                state.record_call(name, (), {})
-                return state.get_stub(name)
+                record = state.record_call(name, (), {})
+                return state.get_stub(record)
 
             return _create_method_interceptor(name, state, cls.__name__)
 
@@ -40,8 +40,8 @@ def _create_method_interceptor(name: str, state: MockState, class_name: str) -> 
     def interceptor(*args: Any, **kwargs: Any) -> Any:
         _validate_method_exists(name, state.schema, class_name)
         _validate_method_signature(name, args, kwargs, state.schema)
-        state.record_call(name, args, kwargs)
-        return state.get_stub(name)
+        record = state.record_call(name, args, kwargs)
+        return state.get_stub(record)
 
     return interceptor
 
