@@ -3,7 +3,7 @@ from tmock import tmock
 
 class TestMockEngine:
 
-    def test_is_instance_check_true(self):
+    def test_is_instance_check(self):
         class SampleClass:
             def __init__(self):
                 raise ValueError('Expected the parent constructor not to be called')
@@ -13,3 +13,12 @@ class TestMockEngine:
 
         assert isinstance(tmock(SampleClass), SampleClass)
         assert not isinstance(tmock(SampleClass), OtherClass)
+
+    def test_recording_calls_with_no_arg(self):
+        class SampleClass:
+            def foo(self):
+                pass
+
+        mocked_sample_class = tmock(SampleClass)
+        mocked_sample_class.foo()
+        assert len(mocked_sample_class.__tmock_state__.calls) == 1
