@@ -1,13 +1,38 @@
+from inspect import Signature
 from typing import TypeVar, Type, Any
 
 from tmock.class_schema import ClassSchema, introspect_class
-from tmock.mock_state import MockState
+from tmock.mock_state import MockState, CallRecord
 
 T = TypeVar("T")
 
 
+class MethodInterceptor:
+
+    def __init__(self, name: str, state: MockState, class_name: str):
+        self._name = name
+        self._state = state
+        self._class_name = class_name
+
+    @property
+    def method_name(self) -> str:
+        return self._name
+
+    @property
+    def method_signature(self) -> Signature:
+        return self._state.schema.method_signatures[self._name]
+
+    def set_return_value(self, record: CallRecord, value: Any) -> None:
+        self._state.stubs[record] = value
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        _validate_method_exists(self._name, self._state.schema, self._class_name)
+        _validate_method_signature(self._name, args, kwargs, self._state.schema)
+        record = self._state.record_call(self._name, args, kwargs)
+        return self._state.get_stub(record)
+
+
 def tmock(cls: Type[T]) -> T:
-    """Creates a mock instance of the given class that intercepts all calls."""
     schema = introspect_class(cls)
 
     class TMock(cls):  # type: ignore[valid-type, misc]
@@ -27,27 +52,14 @@ def tmock(cls: Type[T]) -> T:
                 record = state.record_call(name, (), {})
                 return state.get_stub(record)
 
-            return _create_method_interceptor(name, state, cls.__name__)
+            return MethodInterceptor(name, state, cls.__name__)
 
     instance = object.__new__(TMock)
     TMock.__init__(instance)
     return instance
 
 
-def _create_method_interceptor(name: str, state: MockState, class_name: str) -> Any:
-    """Creates an interceptor function for a method call."""
-
-    def interceptor(*args: Any, **kwargs: Any) -> Any:
-        _validate_method_exists(name, state.schema, class_name)
-        _validate_method_signature(name, args, kwargs, state.schema)
-        record = state.record_call(name, args, kwargs)
-        return state.get_stub(record)
-
-    return interceptor
-
-
 def _validate_method_exists(name: str, schema: ClassSchema, class_name: str) -> None:
-    """Raises AttributeError if the method doesn't exist on the parent class."""
     if name not in schema.method_signatures:
         raise AttributeError(f"{class_name} has no method '{name}'")
 
@@ -58,7 +70,6 @@ def _validate_method_signature(
     kwargs: dict[str, Any],
     schema: ClassSchema
 ) -> None:
-    """Validates that the provided arguments match the method signature."""
     try:
         schema.method_signatures[name].bind(*args, **kwargs)
     except TypeError as e:
@@ -66,5 +77,4 @@ def _validate_method_signature(
 
 
 def _is_dunder(name: str) -> bool:
-    """Checks if a name is a dunder (double underscore) attribute."""
     return name.startswith('__') and name.endswith('__')

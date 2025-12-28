@@ -31,5 +31,5 @@ class TestMockEngine:
                 return 100
 
         mocked_sample_class = tmock(SampleClass)
-        given(mocked_sample_class).when(lambda m: m.foo()).then_return(20)
+        given(mocked_sample_class.foo).with_args().returns(20)
         assert mocked_sample_class.foo() == 20

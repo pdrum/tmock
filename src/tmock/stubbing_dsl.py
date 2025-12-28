@@ -1,41 +1,37 @@
-from typing import TypeVar, Generic, Callable
+from typing import TypeVar, Generic, Callable, ParamSpec
 
-from tmock.mock_state import MockState, CallRecord
+from tmock.mock_state import CallRecord
+from tmock.mock_engine import MethodInterceptor
 
-T = TypeVar("T")
+P = ParamSpec("P")
 R = TypeVar("R")
 
 
-class WhenBuilder(Generic[R]):
-    """Captures a method call and allows setting its return value."""
-
-    def __init__(self, state: MockState, record: CallRecord):
-        self._state = state
+class ReturnsWrapper(Generic[R]):
+    def __init__(self, interceptor: MethodInterceptor, record: CallRecord):
+        self._interceptor = interceptor
         self._record = record
 
-    def then_return(self, value: R) -> None:
-        """Sets the return value for this specific call."""
-        self._state.stubs[self._record] = value
+    def returns(self, value: R) -> None:
+        self._interceptor.set_return_value(self._record, value)
 
 
-class GivenBuilder(Generic[T]):
-    """Builder for setting up mock behavior."""
+class StubbingBuilder(Generic[P, R]):
 
-    def __init__(self, mock: T):
-        self._mock = mock
-        self._state: MockState = object.__getattribute__(mock, '__tmock_state__')
+    def __init__(self, interceptor: MethodInterceptor):
+        self._interceptor = interceptor
 
-    def when(self, call: Callable[[T], R]) -> WhenBuilder[R]:
-        """Captures a method call via lambda for stubbing."""
-        call(self._mock)
-
-        if not self._state.calls:
-            raise ValueError("No method call captured")
-
-        recorded = self._state.calls.pop()
-        return WhenBuilder(self._state, recorded)
+    def with_args(self, *args: P.args, **kwargs: P.kwargs) -> ReturnsWrapper[R]:
+        name = self._interceptor.method_name
+        try:
+            self._interceptor.method_signature.bind(*args, **kwargs)
+        except TypeError as e:
+            raise TypeError(f"{name}(): {e}")
+        record = CallRecord.create(name, args, kwargs)
+        return ReturnsWrapper(self._interceptor, record)
 
 
-def given(mock: T) -> GivenBuilder[T]:
-    """Entry point for stubbing DSL."""
-    return GivenBuilder(mock)
+def given(method: Callable[P, R]) -> StubbingBuilder[P, R]:
+    if not isinstance(method, MethodInterceptor):
+        raise TypeError("given() expects a mock method")
+    return StubbingBuilder(method)
