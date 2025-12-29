@@ -1,27 +1,20 @@
-from inspect import Signature
-from typing import TypeVar, Type, Any
+from typing import Any, Type, TypeVar
 
 from tmock.call_context import set_last_interceptor
 from tmock.class_schema import ClassSchema, introspect_class
-from tmock.mock_state import MockState, CallRecord
+from tmock.mock_state import CallRecord, MockState
 
 T = TypeVar("T")
 
 
 class MethodInterceptor:
-
     def __init__(self, name: str, state: MockState, class_name: str):
         self._name = name
         self._state = state
         self._class_name = class_name
 
-    @property
-    def method_name(self) -> str:
-        return self._name
-
-    @property
-    def method_signature(self) -> Signature:
-        return self._state.schema.method_signatures[self._name]
+    def pop_last_mock_call(self) -> CallRecord:
+        return self._state.calls.pop()
 
     def set_return_value(self, record: CallRecord, value: Any) -> None:
         self._state.stubs[record] = value
@@ -45,7 +38,7 @@ def tmock(cls: Type[T]) -> T:
             if _is_dunder(name):
                 return object.__getattribute__(self, name)
 
-            state: MockState = object.__getattribute__(self, '__tmock_state__')
+            state: MockState = object.__getattribute__(self, "__tmock_state__")
 
             if name in state.schema.class_or_static:
                 return getattr(cls, name)
@@ -66,12 +59,7 @@ def _validate_method_exists(name: str, schema: ClassSchema, class_name: str) -> 
         raise AttributeError(f"{class_name} has no method '{name}'")
 
 
-def _validate_method_signature(
-    name: str,
-    args: tuple[Any, ...],
-    kwargs: dict[str, Any],
-    schema: ClassSchema
-) -> None:
+def _validate_method_signature(name: str, args: tuple[Any, ...], kwargs: dict[str, Any], schema: ClassSchema) -> None:
     try:
         schema.method_signatures[name].bind(*args, **kwargs)
     except TypeError as e:
@@ -79,4 +67,4 @@ def _validate_method_signature(
 
 
 def _is_dunder(name: str) -> bool:
-    return name.startswith('__') and name.endswith('__')
+    return name.startswith("__") and name.endswith("__")
