@@ -9,7 +9,7 @@ dependencies = []
 [project.optional-dependencies]
 dev = [
     "pre-commit",
-    "flake8",
+    "ruff",
     "mypy",
     "pytest",
 ]
@@ -27,3 +27,13 @@ mypy_path = "src"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.ruff.format]
+quote-style = "double"
