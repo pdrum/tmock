@@ -1,9 +1,13 @@
 from typing import Generic, TypeVar
 
 from tmock.call_record import CallRecord
-from tmock.exceptions import TMockStubbingError
-from tmock.last_call_context import clear_last_interceptor, get_last_interceptor
-from tmock.mock_generator import MethodInterceptor
+from tmock.method_interceptor import (
+    DslType,
+    MethodInterceptor,
+    begin_dsl_operation_on_last_call,
+    clear_pending_stub,
+    set_pending_stub,
+)
 
 R = TypeVar("R")
 
@@ -14,13 +18,11 @@ class ReturnsWrapper(Generic[R]):
         self._record = record
 
     def returns(self, value: R) -> None:
+        clear_pending_stub()
         self._interceptor.set_return_value(self._record, value)
 
 
 def given(_: R) -> ReturnsWrapper[R]:
-    interceptor = get_last_interceptor()
-    if interceptor is None:
-        raise TMockStubbingError("given() expects a mock method call.")
-    clear_last_interceptor()
-    record = interceptor.pop_last_call()
+    interceptor, record = begin_dsl_operation_on_last_call(DslType.STUBBING)
+    set_pending_stub(record)
     return ReturnsWrapper(interceptor, record)

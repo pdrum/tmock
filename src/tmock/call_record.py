@@ -3,13 +3,16 @@ from typing import Any
 
 
 @dataclass(frozen=True)
-class CallRecord:
-    """Represents a single recorded call. Frozen for use as dict key."""
-
+class RecordedArgument:
     name: str
-    args: tuple[Any, ...]
-    kwargs: tuple[tuple[str, Any], ...]
+    value: Any
 
-    @classmethod
-    def create(cls, name: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> "CallRecord":
-        return cls(name, args, tuple(sorted(kwargs.items())))
+
+@dataclass(frozen=True)
+class CallRecord:
+    name: str
+    arguments: tuple[RecordedArgument, ...]
+
+    def format_call(self) -> str:
+        args_str = ", ".join(f"{arg.name}={arg.value!r}" for arg in self.arguments)
+        return f"{self.name}({args_str})"
