@@ -1,8 +1,8 @@
 from typing import Generic, TypeVar
 
-from tmock.call_context import clear_last_interceptor, get_last_interceptor
-from tmock.mock_engine import MethodInterceptor
-from tmock.mock_state import CallRecord
+from tmock.call_record import CallRecord
+from tmock.last_call_context import clear_last_interceptor, get_last_interceptor
+from tmock.mock_generator import MethodInterceptor
 
 R = TypeVar("R")
 
@@ -21,5 +21,5 @@ def given(_: R) -> ReturnsWrapper[R]:
     if interceptor is None:
         raise TypeError("given() expects a mock method call")
     clear_last_interceptor()
-    record = interceptor.pop_last_mock_call()
+    record = interceptor.pop_last_call()
     return ReturnsWrapper(interceptor, record)
