@@ -1,11 +1,12 @@
 from dataclasses import dataclass, field
-from inspect import signature, Signature
-from typing import Type, Any
+from inspect import Signature, signature
+from typing import Any, Type
 
 
 @dataclass
 class ClassSchema:
     """Holds introspected metadata about a class's members."""
+
     method_signatures: dict[str, Signature] = field(default_factory=dict)
     properties: set[str] = field(default_factory=set)
     class_or_static: set[str] = field(default_factory=set)
@@ -16,7 +17,7 @@ def introspect_class(cls: Type[Any]) -> ClassSchema:
     schema = ClassSchema()
 
     for name in dir(cls):
-        if name.startswith('_'):
+        if name.startswith("_"):
             continue
 
         raw_attr = _get_raw_attribute(cls, name)
