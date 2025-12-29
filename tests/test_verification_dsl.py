@@ -280,3 +280,48 @@ class TestVerifyEdgeCases:
         verify(mock.add(2, 2)).once()
         verify(mock.add(3, 3)).once()
         verify(mock.add(4, 4)).never()
+
+
+class TestIncompleteVerificationDetection:
+    """Tests that incomplete verify() calls are detected and raise errors."""
+
+    def test_incomplete_verify_detected_on_next_mock_call(self):
+        mock = tmock(Calculator)
+        mock.add(1, 2)
+        verify(mock.add(1, 2))  # Forgot .once(), .called(), etc.
+
+        with pytest.raises(TMockVerificationError) as exc_info:
+            mock.add(3, 4)  # Next mock call should detect incomplete verification
+
+        assert "Incomplete verification" in str(exc_info.value)
+        assert "verify(add(a=1, b=2))" in str(exc_info.value)
+        assert ".once()" in str(exc_info.value) or ".called()" in str(exc_info.value)
+
+    def test_incomplete_verify_detected_on_next_verify(self):
+        mock = tmock(Calculator)
+        mock.add(1, 2)
+        verify(mock.add(1, 2))  # Forgot .once()
+
+        with pytest.raises(TMockVerificationError) as exc_info:
+            verify(mock.add(1, 2))  # Next verify() should detect incomplete
+
+        assert "Incomplete verification" in str(exc_info.value)
+
+    def test_incomplete_verify_detected_on_given(self):
+        mock = tmock(Calculator)
+        mock.add(1, 2)
+        verify(mock.add(1, 2))  # Forgot .once()
+
+        with pytest.raises(TMockVerificationError) as exc_info:
+            given(mock.add(1, 2))  # given() should detect incomplete verify
+
+        assert "Incomplete verification" in str(exc_info.value)
+
+    def test_complete_verification_allows_subsequent_operations(self):
+        mock = tmock(Calculator)
+        mock.add(1, 2)
+        verify(mock.add(1, 2)).once()  # Complete verification
+
+        # Should not raise - verification was completed
+        mock.add(3, 4)
+        verify(mock.add(3, 4)).once()

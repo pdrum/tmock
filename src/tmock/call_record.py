@@ -12,3 +12,7 @@ class RecordedArgument:
 class CallRecord:
     name: str
     arguments: tuple[RecordedArgument, ...]
+
+    def format_call(self) -> str:
+        args_str = ", ".join(f"{arg.name}={arg.value!r}" for arg in self.arguments)
+        return f"{self.name}({args_str})"
