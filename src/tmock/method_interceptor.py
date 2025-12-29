@@ -6,7 +6,7 @@ from typing import Any
 
 from typeguard import TypeCheckError, check_type
 
-from tmock.call_record import CallRecord, RecordedArgument
+from tmock.call_record import CallRecord, RecordedArgument, pattern_matches_call
 from tmock.exceptions import TMockStubbingError, TMockVerificationError
 from tmock.matchers.base import Matcher
 
@@ -41,7 +41,7 @@ class MethodInterceptor:
         return self.__calls.pop()
 
     def count_matching_calls(self, expected: CallRecord) -> int:
-        return sum(1 for call in self.__calls if expected.matches(call))
+        return sum(1 for call in self.__calls if pattern_matches_call(expected, call))
 
     def set_return_value(self, record: CallRecord, value: Any) -> None:
         self._validate_return_type(value)
@@ -59,7 +59,7 @@ class MethodInterceptor:
 
     def _find_stub(self, record: CallRecord) -> Any:
         for stub in self.__stubs:
-            if stub.call_record.matches(record):
+            if pattern_matches_call(stub.call_record, record):
                 return stub.return_value
         return None
 
