@@ -1,6 +1,7 @@
 from inspect import Signature
 from typing import TypeVar, Type, Any
 
+from tmock.call_context import set_last_interceptor
 from tmock.class_schema import ClassSchema, introspect_class
 from tmock.mock_state import MockState, CallRecord
 
@@ -28,6 +29,7 @@ class MethodInterceptor:
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         _validate_method_exists(self._name, self._state.schema, self._class_name)
         _validate_method_signature(self._name, args, kwargs, self._state.schema)
+        set_last_interceptor(self)
         record = self._state.record_call(self._name, args, kwargs)
         return self._state.get_stub(record)
 

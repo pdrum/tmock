@@ -1,13 +1,14 @@
-from typing import TypeVar, Generic, Callable, ParamSpec
+from typing import TypeVar, Generic
 
-from tmock.mock_state import CallRecord
+from tmock.call_context import get_last_interceptor, clear_last_interceptor
 from tmock.mock_engine import MethodInterceptor
+from tmock.mock_state import CallRecord
 
-P = ParamSpec("P")
 R = TypeVar("R")
 
 
 class ReturnsWrapper(Generic[R]):
+
     def __init__(self, interceptor: MethodInterceptor, record: CallRecord):
         self._interceptor = interceptor
         self._record = record
@@ -16,22 +17,10 @@ class ReturnsWrapper(Generic[R]):
         self._interceptor.set_return_value(self._record, value)
 
 
-class StubbingBuilder(Generic[P, R]):
-
-    def __init__(self, interceptor: MethodInterceptor):
-        self._interceptor = interceptor
-
-    def with_args(self, *args: P.args, **kwargs: P.kwargs) -> ReturnsWrapper[R]:
-        name = self._interceptor.method_name
-        try:
-            self._interceptor.method_signature.bind(*args, **kwargs)
-        except TypeError as e:
-            raise TypeError(f"{name}(): {e}")
-        record = CallRecord.create(name, args, kwargs)
-        return ReturnsWrapper(self._interceptor, record)
-
-
-def given(method: Callable[P, R]) -> StubbingBuilder[P, R]:
-    if not isinstance(method, MethodInterceptor):
-        raise TypeError("given() expects a mock method")
-    return StubbingBuilder(method)
+def given(ignored: R) -> ReturnsWrapper[R]:
+    interceptor = get_last_interceptor()
+    if interceptor is None:
+        raise TypeError("given() expects a mock method call")
+    clear_last_interceptor()
+    record = interceptor._state.calls.pop()
+    return ReturnsWrapper(interceptor, record)

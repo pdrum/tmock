@@ -1,4 +1,5 @@
 from tmock import tmock
+from tmock.stubbing_dsl import given
 
 
 class TestMockEngine:
@@ -23,3 +24,12 @@ class TestMockEngine:
         mocked_sample_class.foo()
         assert len(mocked_sample_class.__tmock_state__.calls) == 1
         assert capsys.readouterr().out == ""
+
+    def test_stubbing_call_with_no_arg_with_return_value(self):
+        class SampleClass:
+            def foo(self) -> int:
+                return 100
+
+        mocked_sample_class = tmock(SampleClass)
+        given(mocked_sample_class.foo()).returns(20)
+        assert mocked_sample_class.foo() == 20

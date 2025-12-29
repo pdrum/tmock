@@ -9,7 +9,7 @@ class TestStubbingDsl:
                 return 100
 
         mocked_sample_class = tmock(SampleClass)
-        given(mocked_sample_class.foo).with_args().returns(20)
+        given(mocked_sample_class.foo()).returns(20)
         assert mocked_sample_class.foo() == 20
 
     def test_stubbing_call_with_arg_with_return_value(self):
@@ -18,6 +18,6 @@ class TestStubbingDsl:
                 return 100
 
         mocked_sample_class = tmock(SampleClass)
-        given(mocked_sample_class.foo).with_args()
+        given(mocked_sample_class.foo(10)).returns(20)
         assert mocked_sample_class.foo(10) == 20
         assert mocked_sample_class.foo(15) is None  # TODO: Should be an exception later
