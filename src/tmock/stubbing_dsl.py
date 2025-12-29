@@ -1,6 +1,7 @@
 from typing import Generic, TypeVar
 
 from tmock.call_record import CallRecord
+from tmock.exceptions import TMockStubbingError
 from tmock.last_call_context import clear_last_interceptor, get_last_interceptor
 from tmock.mock_generator import MethodInterceptor
 
@@ -19,7 +20,7 @@ class ReturnsWrapper(Generic[R]):
 def given(_: R) -> ReturnsWrapper[R]:
     interceptor = get_last_interceptor()
     if interceptor is None:
-        raise TypeError("given() expects a mock method call")
+        raise TMockStubbingError("given() expects a mock method call.")
     clear_last_interceptor()
     record = interceptor.pop_last_call()
     return ReturnsWrapper(interceptor, record)
