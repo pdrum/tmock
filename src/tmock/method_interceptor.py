@@ -4,7 +4,7 @@ from typing import Any
 
 from typeguard import TypeCheckError, check_type
 
-from tmock.call_record import CallRecord
+from tmock.call_record import CallRecord, RecordedArgument
 from tmock.exceptions import TMockStubbingError
 from tmock.last_call_context import set_last_interceptor
 
@@ -33,6 +33,9 @@ class MethodInterceptor:
     def pop_last_call(self) -> CallRecord:
         return self.__calls.pop()
 
+    def count_matching_calls(self, expected: CallRecord) -> int:
+        return sum(1 for call in self.__calls if call == expected)
+
     def set_return_value(self, record: CallRecord, value: Any) -> None:
         self._validate_return_type(value)
         self.__stubs.append(Stub(record, value))
@@ -41,7 +44,8 @@ class MethodInterceptor:
         bound_args = self._bind_arguments(args, kwargs)
         self._validate_arg_types(bound_args)
         set_last_interceptor(self)
-        record = CallRecord.create(self.__name, args, kwargs)
+        arguments = tuple(RecordedArgument(ba.name, ba.value) for ba in bound_args)
+        record = CallRecord(self.__name, arguments)
         self.__calls.append(record)
         return self._find_stub(record)
 
