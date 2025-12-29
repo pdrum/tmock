@@ -73,3 +73,29 @@ class TestAnyMatcherVerification:
 
         verify(mock.foo(any(str))).never()
         verify(mock.foo(any(int))).once()
+
+
+class TestMatcherMisuse:
+    """Tests that matchers in actual calls don't accidentally match patterns."""
+
+    def test_any_in_actual_call_does_not_match_any_in_stub(self):
+        class SampleClass:
+            def foo(self, x: int) -> str:
+                return ""
+
+        mock = tmock(SampleClass)
+        given(mock.foo(any(int))).returns("matched")
+
+        # Misuse: matcher in actual call should not match any in stub
+        assert mock.foo(any(int)) is None
+
+    def test_matcher_in_actual_call_does_not_match_any_in_verification(self):
+        class SampleClass:
+            def foo(self, x: int) -> None:
+                pass
+
+        mock = tmock(SampleClass)
+        mock.foo(any(int))  # Misuse: matcher in actual call
+
+        # Verify with any should not match the misused any in actual call
+        verify(mock.foo(any(int))).never()
