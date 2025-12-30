@@ -4,3 +4,7 @@ class TMockStubbingError(Exception):
 
 class TMockVerificationError(AssertionError):
     pass
+
+
+class TMockUnexpectedCallError(Exception):
+    pass

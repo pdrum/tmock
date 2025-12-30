@@ -1,13 +1,11 @@
 import pytest
 
-from tmock.method_interceptor import clear_pending_stub, clear_pending_verification
+from tmock.method_interceptor import reset_dsl_state
 
 
 @pytest.fixture(autouse=True)
-def clear_pending_builders():
-    """Clear any pending incomplete stubs or verifications before and after each test."""
-    clear_pending_stub()
-    clear_pending_verification()
+def clear_dsl_state():
+    """Clear DSL state before and after each test."""
+    reset_dsl_state()
     yield
-    clear_pending_stub()
-    clear_pending_verification()
+    reset_dsl_state()

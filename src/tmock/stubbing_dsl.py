@@ -8,16 +8,14 @@ from tmock.method_interceptor import (
     RaisesStub,
     ReturnsStub,
     RunsStub,
-    begin_dsl_operation_on_last_call,
-    clear_pending_stub,
-    set_pending_stub,
+    get_dsl_state,
 )
 
 R = TypeVar("R")
 
 
 class StubbingBuilder(Generic[R]):
-    """Builder for configuring stub behavior after given()."""
+    """Builder for configuring stub behavior after .call()."""
 
     def __init__(self, interceptor: MethodInterceptor, record: CallRecord):
         self._interceptor = interceptor
@@ -25,18 +23,17 @@ class StubbingBuilder(Generic[R]):
 
     def returns(self, value: R) -> None:
         """Stub the method to return the given value."""
-        clear_pending_stub()
         self._interceptor.validate_return_type(value)
         self._interceptor.add_stub(ReturnsStub(self._record, value))
+        get_dsl_state().complete()
 
     def raises(self, exception: BaseException) -> None:
         """Stub the method to raise the given exception."""
-        clear_pending_stub()
         self._interceptor.add_stub(RaisesStub(self._record, exception))
+        get_dsl_state().complete()
 
     def runs(self, action: Callable[[CallArguments], R]) -> None:
         """Stub the method to execute the given action with call arguments."""
-        clear_pending_stub()
 
         def validated_action(args: CallArguments) -> R:
             result = action(args)
@@ -44,16 +41,31 @@ class StubbingBuilder(Generic[R]):
             return result
 
         self._interceptor.add_stub(RunsStub(self._record, validated_action))
+        get_dsl_state().complete()
 
 
-def given(_: R) -> StubbingBuilder[R]:
-    """Begin stubbing a mock method call.
+class GivenBuilder:
+    """Builder returned by given() to capture mock method calls for stubbing."""
+
+    def call(self, _: R) -> StubbingBuilder[R]:
+        """Capture the mock method call pattern and return a stubbing builder.
+
+        Usage:
+            given().call(mock.method(args)).returns(value)
+        """
+        dsl = get_dsl_state()
+        interceptor, record = dsl.begin_terminal()
+        return StubbingBuilder(interceptor, record)
+
+
+def given() -> GivenBuilder:
+    """Begin defining stub behavior for a mock method.
 
     Usage:
-        given(mock.method(args)).returns(value)
-        given(mock.method(args)).raises(exception)
-        given(mock.method(args)).runs(lambda args: args.get_by_name("x") + 1)
+        given().call(mock.method(args)).returns(value)
+        given().call(mock.method(args)).raises(exception)
+        given().call(mock.method(args)).runs(lambda args: args.get_by_name("x") + 1)
     """
-    interceptor, record = begin_dsl_operation_on_last_call(DslType.STUBBING)
-    set_pending_stub(record)
-    return StubbingBuilder(interceptor, record)
+    dsl = get_dsl_state()
+    dsl.enter_dsl_mode(DslType.STUBBING)
+    return GivenBuilder()

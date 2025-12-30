@@ -8,13 +8,19 @@ from typing import Any, Callable
 from typeguard import TypeCheckError, check_type
 
 from tmock.call_record import CallRecord, RecordedArgument, pattern_matches_call
-from tmock.exceptions import TMockStubbingError, TMockVerificationError
+from tmock.exceptions import TMockStubbingError, TMockUnexpectedCallError, TMockVerificationError
 from tmock.matchers.base import Matcher
 
 
 class DslType(Enum):
     STUBBING = auto()
     VERIFICATION = auto()
+
+
+class DslPhase(Enum):
+    NONE = auto()
+    AWAITING_CALL = auto()
+    AWAITING_TERMINAL = auto()
 
 
 @dataclass
@@ -105,12 +111,17 @@ class MethodInterceptor:
         self._validate_return_type(value)
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        _check_no_pending_builders()
+        dsl = get_dsl_state()
+        dsl.check_no_waiting_for_terminal()
         bound_args = self._bind_arguments(args, kwargs)
         self._validate_arg_types(bound_args)
-        _set_last_interceptor(self)
         arguments = tuple(RecordedArgument(ba.name, ba.value) for ba in bound_args)
         record = CallRecord(self.__name, arguments)
+
+        if dsl.is_awaiting_mock_call():
+            dsl.record_dsl_call(self, record)
+            return None
+
         self.__calls.append(record)
         return self._find_stub(record)
 
@@ -119,7 +130,9 @@ class MethodInterceptor:
             if pattern_matches_call(stub.call_record, record):
                 arguments = CallArguments(record.arguments)
                 return stub.execute(arguments)
-        return None
+        raise TMockUnexpectedCallError(
+            f"No matching behavior defined on {self.__class_name} for {record.format_call()}"
+        )
 
     def _bind_arguments(self, args: tuple[Any, ...], kwargs: dict[str, Any]) -> list[BoundArgument]:
         try:
@@ -160,64 +173,99 @@ class MethodInterceptor:
             )
 
 
-_last_interceptor: ContextVar[MethodInterceptor | None] = ContextVar("last_interceptor", default=None)
-_pending_stub: ContextVar[CallRecord | None] = ContextVar("pending_stub", default=None)
-_pending_verification: ContextVar[CallRecord | None] = ContextVar("pending_verification", default=None)
+class DslState:
+    def __init__(self) -> None:
+        self.phase: DslPhase = DslPhase.NONE
+        self.type: DslType | None = None
+        self.interceptor: MethodInterceptor | None = None
+        self.record: CallRecord | None = None
+
+    def enter_dsl_mode(self, dsl_type: DslType) -> None:
+        """Called by given() or verify() to enter DSL mode."""
+        if self.phase != DslPhase.NONE:
+            raise self._incomplete_error()
+        self.phase = DslPhase.AWAITING_CALL
+        self.type = dsl_type
+
+    def record_dsl_call(self, interceptor: MethodInterceptor, record: CallRecord) -> None:
+        """Called by mock method when in DSL mode to record the pattern."""
+        self.phase = DslPhase.AWAITING_TERMINAL
+        self.interceptor = interceptor
+        self.record = record
+
+    def begin_terminal(self) -> tuple[MethodInterceptor, CallRecord]:
+        """Called by .call() to get interceptor and record."""
+        if self.phase != DslPhase.AWAITING_TERMINAL:
+            if self.phase == DslPhase.NONE:
+                raise TMockStubbingError("Must call given() or verify() before .call().")
+            elif self.phase == DslPhase.AWAITING_CALL:
+                raise TMockStubbingError(f"{self._dsl_name()}() was called but no mock method was invoked.")
+        assert self.interceptor is not None and self.record is not None
+        return self.interceptor, self.record
+
+    def complete(self) -> None:
+        """Called by terminal methods (.returns(), .times(), etc.) to reset state."""
+        self.phase = DslPhase.NONE
+        self.type = None
+        self.interceptor = None
+        self.record = None
+
+    def check_no_waiting_for_terminal(self) -> None:
+        """Raise if there's an incomplete DSL operation (but not if we're in AWAITING_CALL phase)."""
+        if self.phase == DslPhase.AWAITING_TERMINAL:
+            raise self._incomplete_error()
+
+    def is_awaiting_mock_call(self) -> bool:
+        return self.phase == DslPhase.AWAITING_CALL
+
+    def reset(self) -> None:
+        """Reset the state completely (for test cleanup)."""
+        self.phase = DslPhase.NONE
+        self.type = None
+        self.interceptor = None
+        self.record = None
+
+    def _dsl_name(self) -> str:
+        if self.type == DslType.STUBBING:
+            return "given"
+        elif self.type == DslType.VERIFICATION:
+            return "verify"
+        raise ValueError(f"Unknown DSL type: {self.type}")
+
+    def _incomplete_error(self) -> Exception:
+        if self.phase == DslPhase.AWAITING_CALL:
+            return TMockStubbingError(
+                f"Incomplete DSL: {self._dsl_name()}() was called but no mock method was invoked."
+            )
+        elif self.phase == DslPhase.AWAITING_TERMINAL:
+            record_str = self.record.format_call() if self.record else "unknown"
+            if self.type == DslType.STUBBING:
+                return TMockStubbingError(
+                    f"Incomplete stub: given().call({record_str}) was never completed. "
+                    f"Did you forget to call .returns(), .raises(), or .runs()?"
+                )
+            else:
+                return TMockVerificationError(
+                    f"Incomplete verification: verify().call({record_str}) was never completed. "
+                    f"Did you forget to call .times(), .once(), .never(), .called(), .at_least(), or .at_most()?"
+                )
+        return TMockStubbingError("Unknown DSL state error.")
 
 
-def _set_last_interceptor(interceptor: MethodInterceptor) -> None:
-    _last_interceptor.set(interceptor)
+_dsl_state: ContextVar[DslState | None] = ContextVar("dsl_state", default=None)
 
 
-def set_pending_stub(record: CallRecord) -> None:
-    _pending_stub.set(record)
+def get_dsl_state() -> DslState:
+    """Get the current DSL state, creating one if needed."""
+    state = _dsl_state.get()
+    if state is None:
+        state = DslState()
+        _dsl_state.set(state)
+    return state
 
 
-def clear_pending_stub() -> None:
-    _pending_stub.set(None)
-
-
-def set_pending_verification(record: CallRecord) -> None:
-    _pending_verification.set(record)
-
-
-def clear_pending_verification() -> None:
-    _pending_verification.set(None)
-
-
-def _check_no_pending_builders() -> None:
-    """Raise if there's an incomplete given() or verify() operation."""
-    pending = _pending_stub.get()
-    if pending is not None:
-        raise TMockStubbingError(
-            f"Incomplete stub: given({pending.format_call()}) was never completed. "
-            f"Did you forget to call .returns(), .raises(), or .runs()?"
-        )
-
-    pending = _pending_verification.get()
-    if pending is not None:
-        raise TMockVerificationError(
-            f"Incomplete verification: verify({pending.format_call()}) was never completed. "
-            f"Did you forget to call .once(), .called(), .never(), .times(), .at_least(), or .at_most()?"
-        )
-
-
-def begin_dsl_operation_on_last_call(dsl_type: DslType) -> tuple[MethodInterceptor, CallRecord]:
-    """Begin a stubbing or verification DSL operation on the last mock call.
-
-    Validates no pending incomplete operations exist, retrieves the last interceptor,
-    clears the context, and returns the interceptor with its last call record.
-
-    Raises:
-        TMockStubbingError: If there's an incomplete stub or no mock method was called (for STUBBING).
-        TMockVerificationError: If there's an incomplete verification or no mock method was called (for VERIFICATION).
-    """
-    _check_no_pending_builders()
-    interceptor = _last_interceptor.get()
-    if interceptor is None:
-        if dsl_type == DslType.STUBBING:
-            raise TMockStubbingError("given() expects a mock method call.")
-        else:
-            raise TMockVerificationError("verify() expects a mock method call.")
-    _last_interceptor.set(None)
-    return interceptor, interceptor.pop_last_call()
+def reset_dsl_state() -> None:
+    """Reset the DSL state (for test cleanup)."""
+    state = _dsl_state.get()
+    if state is not None:
+        state.reset()
