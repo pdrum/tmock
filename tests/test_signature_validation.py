@@ -1,8 +1,9 @@
+import re
+
 import pytest
 
-from tmock import tmock
+from tmock import any, define, tmock
 from tmock.exceptions import TMockStubbingError
-from tmock.stubbing_dsl import given
 
 
 class TestArgumentTypeValidation:
@@ -48,7 +49,8 @@ class TestArgumentTypeValidation:
                 return 0
 
         mock = tmock(SampleClass)
-        mock.foo(None)  # Should not raise
+        define().given(mock.foo(any(int | None))).returns(0)
+        mock.foo(None)  # Should not raise - None is valid for int | None
 
     def test_list_element_type_validated(self):
         class SampleClass:
@@ -56,6 +58,7 @@ class TestArgumentTypeValidation:
                 return 0
 
         mock = tmock(SampleClass)
+        define().given(mock.foo(any(list[int]))).returns(0)
         mock.foo([1, 2, 3])  # Valid
         with pytest.raises(TMockStubbingError):
             mock.foo(["a", "b"])  # Invalid element type
@@ -66,6 +69,7 @@ class TestArgumentTypeValidation:
                 return 0
 
         mock = tmock(SampleClass)
+        define().given(mock.foo(any(dict[str, int]))).returns(0)
         mock.foo({"a": 1})  # Valid
         with pytest.raises(TMockStubbingError):
             mock.foo({1: "wrong"})  # Invalid key and value types
@@ -104,8 +108,13 @@ class TestArgumentCountValidation:
             def foo(self, x: int, y: int = 10) -> int:
                 return x + y
 
-        mock = tmock(SampleClass)
-        mock.foo(5)  # Should not raise
+        mock1 = tmock(SampleClass)
+        define().given(mock1.foo(5, 10)).returns(0)
+        assert mock1.foo(5) == 0  # Should not raise
+
+        mock2 = tmock(SampleClass)
+        define().given(mock2.foo(5, 10)).returns(0)
+        assert mock2.foo(5) == 0  # Should not raise
 
 
 class TestReturnTypeValidation:
@@ -125,7 +134,7 @@ class TestReturnTypeValidation:
 
         mock = tmock(SampleClass)
         with pytest.raises(TMockStubbingError, match="Invalid return type"):
-            given(mock.foo()).returns(return_value)
+            define().given(mock.foo()).returns(return_value)
 
     def test_none_allowed_for_optional_return(self):
         class SampleClass:
@@ -133,7 +142,7 @@ class TestReturnTypeValidation:
                 return 0
 
         mock = tmock(SampleClass)
-        given(mock.foo()).returns(None)  # Should not raise
+        define().given(mock.foo()).returns(None)  # Should not raise
 
     def test_list_return_type_validated(self):
         class SampleClass:
@@ -141,9 +150,9 @@ class TestReturnTypeValidation:
                 return []
 
         mock = tmock(SampleClass)
-        given(mock.foo()).returns([1, 2, 3])  # Valid
+        define().given(mock.foo()).returns([1, 2, 3])  # Valid
         with pytest.raises(TMockStubbingError):
-            given(mock.foo()).returns(["a", "b"])
+            define().given(mock.foo()).returns(["a", "b"])
 
     def test_no_return_annotation_allows_any(self):
         class SampleClass:
@@ -151,15 +160,15 @@ class TestReturnTypeValidation:
                 pass
 
         mock = tmock(SampleClass)
-        given(mock.foo()).returns("anything")  # Should not raise
-        given(mock.foo()).returns(123)  # Should not raise
+        define().given(mock.foo()).returns("anything")  # Should not raise
+        define().given(mock.foo()).returns(123)  # Should not raise
 
 
 class TestGivenWithoutMockCall:
     def test_given_without_mock_call_raises(self):
-        with pytest.raises(TMockStubbingError, match="given\\(\\) expects a mock method call"):
-            given(42)
+        with pytest.raises(TMockStubbingError, match=re.escape(r"define() was called but no mock method was invoked.")):
+            define().given(42)
 
     def test_given_with_none_raises(self):
-        with pytest.raises(TMockStubbingError, match="given\\(\\) expects a mock method call"):
-            given(None)
+        with pytest.raises(TMockStubbingError, match=re.escape("define() was called but no mock method was invoked.")):
+            define().given(None)

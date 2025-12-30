@@ -1,4 +1,7 @@
-from tmock import any, given, tmock, verify
+import pytest
+
+from tmock import any, checks, define, tmock
+from tmock.exceptions import TMockUnexpectedCallError
 
 
 class TestAnyMatcherStubbing:
@@ -8,7 +11,7 @@ class TestAnyMatcherStubbing:
                 return ""
 
         mock = tmock(SampleClass)
-        given(mock.foo(any(int))).returns("matched")
+        define().given(mock.foo(any(int))).returns("matched")
 
         assert mock.foo(1) == "matched"
         assert mock.foo(999) == "matched"
@@ -20,9 +23,10 @@ class TestAnyMatcherStubbing:
                 return ""
 
         mock = tmock(SampleClass)
-        given(mock.foo(any(str))).returns("matched")
+        define().given(mock.foo(any(str))).returns("matched")
 
-        assert mock.foo(42) is None
+        with pytest.raises(TMockUnexpectedCallError):
+            mock.foo(42)
 
     def test_any_matcher_with_multiple_args(self):
         class SampleClass:
@@ -30,11 +34,12 @@ class TestAnyMatcherStubbing:
                 return ""
 
         mock = tmock(SampleClass)
-        given(mock.foo(any(int), "hello")).returns("matched")
+        define().given(mock.foo(any(int), "hello")).returns("matched")
 
         assert mock.foo(1, "hello") == "matched"
         assert mock.foo(999, "hello") == "matched"
-        assert mock.foo(1, "world") is None
+        with pytest.raises(TMockUnexpectedCallError):
+            mock.foo(1, "world")
 
 
 class TestAnyMatcherVerification:
@@ -44,11 +49,12 @@ class TestAnyMatcherVerification:
                 pass
 
         mock = tmock(SampleClass)
+        define().given(mock.foo(any(int))).returns(None)
         mock.foo(1)
         mock.foo(2)
         mock.foo(3)
 
-        verify(mock.foo(any(int))).times(3)
+        checks().verify(mock.foo(any(int))).times(3)
 
     def test_any_matcher_verification_with_mixed_args(self):
         class SampleClass:
@@ -56,12 +62,13 @@ class TestAnyMatcherVerification:
                 pass
 
         mock = tmock(SampleClass)
+        define().given(mock.foo(any(int), any(str))).returns(None)
         mock.foo(1, "hello")
         mock.foo(2, "hello")
         mock.foo(3, "world")
 
-        verify(mock.foo(any(int), "hello")).times(2)
-        verify(mock.foo(any(int), "world")).once()
+        checks().verify(mock.foo(any(int), "hello")).times(2)
+        checks().verify(mock.foo(any(int), "world")).once()
 
     def test_any_matcher_type_mismatch_in_verification(self):
         class SampleClass:
@@ -69,10 +76,11 @@ class TestAnyMatcherVerification:
                 pass
 
         mock = tmock(SampleClass)
+        define().given(mock.foo(any(int))).returns(None)
         mock.foo(42)
 
-        verify(mock.foo(any(str))).never()
-        verify(mock.foo(any(int))).once()
+        checks().verify(mock.foo(any(str))).never()
+        checks().verify(mock.foo(any(int))).once()
 
 
 class TestMatcherMisuse:
@@ -84,18 +92,21 @@ class TestMatcherMisuse:
                 return ""
 
         mock = tmock(SampleClass)
-        given(mock.foo(any(int))).returns("matched")
+        define().given(mock.foo(any(int))).returns("matched")
 
         # Misuse: matcher in actual call should not match any in stub
-        assert mock.foo(any(int)) is None
+        with pytest.raises(TMockUnexpectedCallError):
+            mock.foo(any(int))
 
-    def test_matcher_in_actual_call_does_not_match_any_in_verification(self):
+    def test_matcher_in_actual_call_raises_with_stub_present(self):
         class SampleClass:
             def foo(self, x: int) -> None:
                 pass
 
         mock = tmock(SampleClass)
-        mock.foo(any(int))  # Misuse: matcher in actual call
+        define().given(mock.foo(any(int))).returns(None)
 
-        # Verify with any should not match the misused any in actual call
-        verify(mock.foo(any(int))).never()
+        # Misuse: matcher in actual call doesn't match the any(int) pattern
+        # because the matcher object itself is not an int
+        with pytest.raises(TMockUnexpectedCallError):
+            mock.foo(any(int))

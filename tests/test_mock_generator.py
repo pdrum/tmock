@@ -1,4 +1,7 @@
-from tmock import tmock
+import pytest
+
+from tmock import define, tmock
+from tmock.exceptions import TMockUnexpectedCallError
 
 
 class TestMockEngine:
@@ -19,5 +22,16 @@ class TestMockEngine:
                 print("foo")
 
         mocked_sample_class = tmock(SampleClass)
+        define().given(mocked_sample_class.foo()).runs(lambda _: None)
         mocked_sample_class.foo()
+        assert capsys.readouterr().out == ""
+
+    def test_raising_exception_if_stub_not_defined(self, capsys):
+        class SampleClass:
+            def foo(self):
+                print("foo")
+
+        mocked_sample_class = tmock(SampleClass)
+        with pytest.raises(TMockUnexpectedCallError):
+            mocked_sample_class.foo()
         assert capsys.readouterr().out == ""

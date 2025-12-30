@@ -1,8 +1,7 @@
 import pytest
 
-from tmock import tmock
-from tmock.exceptions import TMockStubbingError
-from tmock.stubbing_dsl import given
+from tmock import checks, define, tmock
+from tmock.exceptions import TMockStubbingError, TMockUnexpectedCallError
 
 
 class TestStubbingDsl:
@@ -12,7 +11,7 @@ class TestStubbingDsl:
                 return 100
 
         mock = tmock(SampleClass)
-        given(mock.foo()).returns(20)
+        define().given(mock.foo()).returns(20)
         assert mock.foo() == 20
 
     def test_stubbing_call_with_arg_with_return_value(self):
@@ -21,9 +20,10 @@ class TestStubbingDsl:
                 return 100
 
         mock = tmock(SampleClass)
-        given(mock.foo(10)).returns(20)
+        define().given(mock.foo(10)).returns(20)
         assert mock.foo(10) == 20
-        assert mock.foo(15) is None
+        with pytest.raises(TMockUnexpectedCallError):
+            mock.foo(15)
 
     def test_stubbing_multiple_calls_with_different_args(self):
         class SampleClass:
@@ -31,15 +31,16 @@ class TestStubbingDsl:
                 return ""
 
         mock = tmock(SampleClass)
-        given(mock.foo(1)).returns("one")
-        given(mock.foo(2)).returns("two")
+        define().given(mock.foo(1)).returns("one")
+        define().given(mock.foo(2)).returns("two")
         assert mock.foo(1) == "one"
         assert mock.foo(2) == "two"
-        assert mock.foo(3) is None
+        with pytest.raises(TMockUnexpectedCallError):
+            mock.foo(3)
 
 
 class TestIncompleteStubDetection:
-    """Tests that incomplete given() calls are detected and raise errors."""
+    """Tests that incomplete define().given() calls are detected and raise errors."""
 
     def test_incomplete_stub_detected_on_next_mock_call(self):
         class SampleClass:
@@ -47,7 +48,7 @@ class TestIncompleteStubDetection:
                 return 0
 
         mock = tmock(SampleClass)
-        given(mock.foo(1))  # Forgot .returns()
+        define().given(mock.foo(1))  # Forgot .returns()
 
         with pytest.raises(TMockStubbingError) as exc_info:
             mock.foo(2)  # Next mock call should detect incomplete stub
@@ -56,32 +57,30 @@ class TestIncompleteStubDetection:
         assert "given(foo(x=1))" in str(exc_info.value)
         assert ".returns()" in str(exc_info.value)
 
-    def test_incomplete_stub_detected_on_next_given(self):
+    def test_incomplete_stub_detected_on_next_define(self):
         class SampleClass:
             def foo(self, x: int) -> int:
                 return 0
 
         mock = tmock(SampleClass)
-        given(mock.foo(1))  # Forgot .returns()
+        define().given(mock.foo(1))  # Forgot .returns()
 
         with pytest.raises(TMockStubbingError) as exc_info:
-            given(mock.foo(2))  # Next given() should detect incomplete stub
+            define().given(mock.foo(2))  # Next define() should detect incomplete stub
 
         assert "Incomplete stub" in str(exc_info.value)
         assert "foo(x=1)" in str(exc_info.value)
 
-    def test_incomplete_stub_detected_on_verify(self):
-        from tmock import verify
-
+    def test_incomplete_stub_detected_on_checks(self):
         class SampleClass:
             def foo(self, x: int) -> int:
                 return 0
 
         mock = tmock(SampleClass)
-        given(mock.foo(1))  # Forgot .returns()
+        define().given(mock.foo(1))  # Forgot .returns()
 
         with pytest.raises(TMockStubbingError) as exc_info:
-            verify(mock.foo(1))  # verify() should detect incomplete stub
+            checks().verify(mock.foo(1))  # checks() should detect incomplete stub
 
         assert "Incomplete stub" in str(exc_info.value)
 
@@ -91,9 +90,9 @@ class TestIncompleteStubDetection:
                 return 0
 
         mock = tmock(SampleClass)
-        given(mock.foo(1)).returns(100)  # Complete stub
+        define().given(mock.foo(1)).returns(100)  # Complete stub
 
         # Should not raise - stub was completed
         assert mock.foo(1) == 100
-        given(mock.foo(2)).returns(200)
+        define().given(mock.foo(2)).returns(200)
         assert mock.foo(2) == 200
