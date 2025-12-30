@@ -1,6 +1,6 @@
 import pytest
 
-from tmock import any, checks, define, tmock
+from tmock import any, given, tmock, verify
 from tmock.exceptions import TMockUnexpectedCallError
 
 
@@ -11,7 +11,7 @@ class TestAnyMatcherStubbing:
                 return ""
 
         mock = tmock(SampleClass)
-        define().given(mock.foo(any(int))).returns("matched")
+        given().call(mock.foo(any(int))).returns("matched")
 
         assert mock.foo(1) == "matched"
         assert mock.foo(999) == "matched"
@@ -23,7 +23,7 @@ class TestAnyMatcherStubbing:
                 return ""
 
         mock = tmock(SampleClass)
-        define().given(mock.foo(any(str))).returns("matched")
+        given().call(mock.foo(any(str))).returns("matched")
 
         with pytest.raises(TMockUnexpectedCallError):
             mock.foo(42)
@@ -34,7 +34,7 @@ class TestAnyMatcherStubbing:
                 return ""
 
         mock = tmock(SampleClass)
-        define().given(mock.foo(any(int), "hello")).returns("matched")
+        given().call(mock.foo(any(int), "hello")).returns("matched")
 
         assert mock.foo(1, "hello") == "matched"
         assert mock.foo(999, "hello") == "matched"
@@ -49,12 +49,12 @@ class TestAnyMatcherVerification:
                 pass
 
         mock = tmock(SampleClass)
-        define().given(mock.foo(any(int))).returns(None)
+        given().call(mock.foo(any(int))).returns(None)
         mock.foo(1)
         mock.foo(2)
         mock.foo(3)
 
-        checks().verify(mock.foo(any(int))).times(3)
+        verify().call(mock.foo(any(int))).times(3)
 
     def test_any_matcher_verification_with_mixed_args(self):
         class SampleClass:
@@ -62,13 +62,13 @@ class TestAnyMatcherVerification:
                 pass
 
         mock = tmock(SampleClass)
-        define().given(mock.foo(any(int), any(str))).returns(None)
+        given().call(mock.foo(any(int), any(str))).returns(None)
         mock.foo(1, "hello")
         mock.foo(2, "hello")
         mock.foo(3, "world")
 
-        checks().verify(mock.foo(any(int), "hello")).times(2)
-        checks().verify(mock.foo(any(int), "world")).once()
+        verify().call(mock.foo(any(int), "hello")).times(2)
+        verify().call(mock.foo(any(int), "world")).once()
 
     def test_any_matcher_type_mismatch_in_verification(self):
         class SampleClass:
@@ -76,11 +76,11 @@ class TestAnyMatcherVerification:
                 pass
 
         mock = tmock(SampleClass)
-        define().given(mock.foo(any(int))).returns(None)
+        given().call(mock.foo(any(int))).returns(None)
         mock.foo(42)
 
-        checks().verify(mock.foo(any(str))).never()
-        checks().verify(mock.foo(any(int))).once()
+        verify().call(mock.foo(any(str))).never()
+        verify().call(mock.foo(any(int))).once()
 
 
 class TestMatcherMisuse:
@@ -92,7 +92,7 @@ class TestMatcherMisuse:
                 return ""
 
         mock = tmock(SampleClass)
-        define().given(mock.foo(any(int))).returns("matched")
+        given().call(mock.foo(any(int))).returns("matched")
 
         # Misuse: matcher in actual call should not match any in stub
         with pytest.raises(TMockUnexpectedCallError):
@@ -104,7 +104,7 @@ class TestMatcherMisuse:
                 pass
 
         mock = tmock(SampleClass)
-        define().given(mock.foo(any(int))).returns(None)
+        given().call(mock.foo(any(int))).returns(None)
 
         # Misuse: matcher in actual call doesn't match the any(int) pattern
         # because the matcher object itself is not an int

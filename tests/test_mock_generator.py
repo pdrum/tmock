@@ -1,6 +1,6 @@
 import pytest
 
-from tmock import define, tmock
+from tmock import given, tmock
 from tmock.exceptions import TMockUnexpectedCallError
 
 
@@ -22,7 +22,7 @@ class TestMockEngine:
                 print("foo")
 
         mocked_sample_class = tmock(SampleClass)
-        define().given(mocked_sample_class.foo()).runs(lambda _: None)
+        given().call(mocked_sample_class.foo()).runs(lambda _: None)
         mocked_sample_class.foo()
         assert capsys.readouterr().out == ""
 

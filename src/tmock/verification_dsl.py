@@ -12,7 +12,7 @@ R = TypeVar("R")
 
 
 class VerificationBuilder:
-    """Builder for configuring verification assertions after .verify()."""
+    """Builder for configuring verification assertions after .call()."""
 
     def __init__(self, interceptor: MethodInterceptor, expected: CallRecord):
         self._interceptor = interceptor
@@ -63,31 +63,31 @@ class VerificationBuilder:
             )
 
 
-class ChecksBuilder:
-    """Builder returned by checks() to capture mock method calls for verification."""
+class VerifyBuilder:
+    """Builder returned by verify() to capture mock method calls for verification."""
 
-    def verify(self, _: R) -> VerificationBuilder:
+    def call(self, _: R) -> VerificationBuilder:
         """Capture the mock method call pattern and return a verification builder.
 
         Usage:
-            checks().verify(mock.method(args)).times(n)
+            verify().call(mock.method(args)).times(n)
         """
         dsl = get_dsl_state()
         interceptor, record = dsl.begin_terminal()
         return VerificationBuilder(interceptor, record)
 
 
-def checks() -> ChecksBuilder:
+def verify() -> VerifyBuilder:
     """Begin verifying calls on a mock method.
 
     Usage:
-        checks().verify(mock.foo(10)).called()     # at least once
-        checks().verify(mock.foo(10)).once()       # exactly once
-        checks().verify(mock.foo(10)).times(2)     # exactly 2 times
-        checks().verify(mock.foo(10)).never()      # never called
-        checks().verify(mock.foo(10)).at_least(1)  # at least n times
-        checks().verify(mock.foo(10)).at_most(3)   # at most n times
+        verify().call(mock.foo(10)).called()     # at least once
+        verify().call(mock.foo(10)).once()       # exactly once
+        verify().call(mock.foo(10)).times(2)     # exactly 2 times
+        verify().call(mock.foo(10)).never()      # never called
+        verify().call(mock.foo(10)).at_least(1)  # at least n times
+        verify().call(mock.foo(10)).at_most(3)   # at most n times
     """
     dsl = get_dsl_state()
     dsl.enter_dsl_mode(DslType.VERIFICATION)
-    return ChecksBuilder()
+    return VerifyBuilder()

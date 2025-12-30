@@ -1,6 +1,6 @@
 import pytest
 
-from tmock import CallArguments, any, define, tmock
+from tmock import CallArguments, any, given, tmock
 from tmock.exceptions import TMockStubbingError, TMockUnexpectedCallError
 
 
@@ -13,7 +13,7 @@ class TestRunsStubbing:
                 return 0
 
         mock = tmock(Calculator)
-        define().given(mock.add(any(int), any(int))).runs(lambda args: args.get_by_name("a") + args.get_by_name("b"))
+        given().call(mock.add(any(int), any(int))).runs(lambda args: args.get_by_name("a") + args.get_by_name("b"))
 
         assert mock.add(3, 5) == 8
         assert mock.add(10, 20) == 30
@@ -24,7 +24,7 @@ class TestRunsStubbing:
                 return ""
 
         mock = tmock(Service)
-        define().given(mock.get_status()).runs(lambda _: "mocked status")
+        given().call(mock.get_status()).runs(lambda _: "mocked status")
 
         assert mock.get_status() == "mocked status"
 
@@ -35,7 +35,7 @@ class TestRunsStubbing:
 
         captured_events: list[str] = []
         mock = tmock(EventEmitter)
-        define().given(mock.emit(any(str))).runs(lambda args: captured_events.append(args.get_by_name("event")))
+        given().call(mock.emit(any(str))).runs(lambda args: captured_events.append(args.get_by_name("event")))
 
         mock.emit("click")
         mock.emit("submit")
@@ -48,7 +48,7 @@ class TestRunsStubbing:
                 return 0
 
         mock = tmock(Calculator)
-        define().given(mock.multiply(any(int), any(int))).runs(
+        given().call(mock.multiply(any(int), any(int))).runs(
             lambda args: "not an int"  # Wrong return type
         )
 
@@ -64,7 +64,7 @@ class TestRunsStubbing:
 
         fake_cache = {"user:1": "Alice", "user:2": "Bob"}
         mock = tmock(Cache)
-        define().given(mock.get(any(str))).runs(lambda args: fake_cache.get(args.get_by_name("key")))
+        given().call(mock.get(any(str))).runs(lambda args: fake_cache.get(args.get_by_name("key")))
 
         assert mock.get("user:1") == "Alice"
         assert mock.get("user:2") == "Bob"
@@ -82,7 +82,7 @@ class TestRunsStubbing:
             return [{"result": "ok"}]
 
         mock = tmock(Database)
-        define().given(mock.query(any(str))).runs(execute_query)
+        given().call(mock.query(any(str))).runs(execute_query)
 
         assert mock.query("SELECT * FROM users") == [{"result": "ok"}]
 
@@ -97,7 +97,7 @@ class TestRunsStubbing:
                 return ""
 
         mock = tmock(Service)
-        define().given(mock.process(any(str))).runs(
+        given().call(mock.process(any(str))).runs(
             lambda args: args.get_by_name("unknown")  # Wrong argument name
         )
 
@@ -113,8 +113,8 @@ class TestRunsStubbing:
                 return ""
 
         mock = tmock(Formatter)
-        define().given(mock.format("hex", any(int))).runs(lambda args: hex(args.get_by_name("value")))
-        define().given(mock.format("bin", any(int))).runs(lambda args: bin(args.get_by_name("value")))
+        given().call(mock.format("hex", any(int))).runs(lambda args: hex(args.get_by_name("value")))
+        given().call(mock.format("bin", any(int))).runs(lambda args: bin(args.get_by_name("value")))
 
         assert mock.format("hex", 255) == "0xff"
         assert mock.format("bin", 5) == "0b101"

@@ -1,6 +1,6 @@
 import pytest
 
-from tmock import any, define, tmock
+from tmock import any, given, tmock
 from tmock.exceptions import TMockUnexpectedCallError
 
 
@@ -13,7 +13,7 @@ class TestRaisesStubbing:
                 return a / b
 
         mock = tmock(Calculator)
-        define().given(mock.divide(10, 0)).raises(ZeroDivisionError("cannot divide by zero"))
+        given().call(mock.divide(10, 0)).raises(ZeroDivisionError("cannot divide by zero"))
 
         with pytest.raises(ZeroDivisionError) as exc_info:
             mock.divide(10, 0)
@@ -26,7 +26,7 @@ class TestRaisesStubbing:
                 return a / b
 
         mock = tmock(Calculator)
-        define().given(mock.divide(10, 0)).raises(ZeroDivisionError("cannot divide by zero"))
+        given().call(mock.divide(10, 0)).raises(ZeroDivisionError("cannot divide by zero"))
 
         # Non-matching call raises TMockUnexpectedCallError
         with pytest.raises(TMockUnexpectedCallError):
@@ -38,7 +38,7 @@ class TestRaisesStubbing:
                 return ""
 
         mock = tmock(UserService)
-        define().given(mock.get_user(any(int))).raises(ValueError("user not found"))
+        given().call(mock.get_user(any(int))).raises(ValueError("user not found"))
 
         with pytest.raises(ValueError) as exc_info:
             mock.get_user(42)
@@ -60,7 +60,7 @@ class TestRaisesStubbing:
                 return ""
 
         mock = tmock(ApiClient)
-        define().given(mock.fetch("https://api.example.com")).raises(CustomError(404, "Not Found"))
+        given().call(mock.fetch("https://api.example.com")).raises(CustomError(404, "Not Found"))
 
         with pytest.raises(CustomError) as exc_info:
             mock.fetch("https://api.example.com")
@@ -74,8 +74,8 @@ class TestRaisesStubbing:
                 return ""
 
         mock = tmock(FileReader)
-        define().given(mock.read("/valid/path")).returns("file contents")
-        define().given(mock.read("/invalid/path")).raises(FileNotFoundError("file not found"))
+        given().call(mock.read("/valid/path")).returns("file contents")
+        given().call(mock.read("/invalid/path")).raises(FileNotFoundError("file not found"))
 
         assert mock.read("/valid/path") == "file contents"
 
@@ -88,7 +88,7 @@ class TestRaisesStubbing:
                 pass
 
         mock = tmock(Service)
-        define().given(mock.process()).raises(RuntimeError("service unavailable"))
+        given().call(mock.process()).raises(RuntimeError("service unavailable"))
 
         with pytest.raises(RuntimeError) as exc_info:
             mock.process()

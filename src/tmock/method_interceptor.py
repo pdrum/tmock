@@ -183,7 +183,7 @@ class DslState:
         self.record: CallRecord | None = None
 
     def enter_dsl_mode(self, dsl_type: DslType) -> None:
-        """Called by define() or checks() to enter DSL mode."""
+        """Called by given() or verify() to enter DSL mode."""
         if self.phase != DslPhase.NONE:
             raise self._incomplete_error()
         self.phase = DslPhase.AWAITING_CALL
@@ -196,10 +196,10 @@ class DslState:
         self.record = record
 
     def begin_terminal(self) -> tuple[MethodInterceptor, CallRecord]:
-        """Called by .given() or .verify() to get interceptor and record."""
+        """Called by .call() to get interceptor and record."""
         if self.phase != DslPhase.AWAITING_TERMINAL:
             if self.phase == DslPhase.NONE:
-                raise TMockStubbingError("Must call define() or checks() before .given() or .verify().")
+                raise TMockStubbingError("Must call given() or verify() before .call().")
             elif self.phase == DslPhase.AWAITING_CALL:
                 raise TMockStubbingError(f"{self._dsl_name()}() was called but no mock method was invoked.")
         assert self.interceptor is not None and self.record is not None
@@ -218,7 +218,7 @@ class DslState:
             raise self._incomplete_error()
 
     def is_in_dsl_mode(self) -> bool:
-        """Check if we're currently in DSL mode (define/checks called, awaiting mock call)."""
+        """Check if we're currently in DSL mode (given/verify called, awaiting mock call)."""
         return self.phase == DslPhase.AWAITING_CALL
 
     def reset(self) -> None:
@@ -230,10 +230,10 @@ class DslState:
 
     def _dsl_name(self) -> str:
         if self.type == DslType.STUBBING:
-            return "define"
+            return "given"
         elif self.type == DslType.VERIFICATION:
-            return "checks"
-        return "define/checks"
+            return "verify"
+        raise ValueError(f"Unknown DSL type: {self.type}")
 
     def _incomplete_error(self) -> Exception:
         if self.phase == DslPhase.AWAITING_CALL:
@@ -244,12 +244,12 @@ class DslState:
             record_str = self.record.format_call() if self.record else "unknown"
             if self.type == DslType.STUBBING:
                 return TMockStubbingError(
-                    f"Incomplete stub: define().given({record_str}) was never completed. "
+                    f"Incomplete stub: given().call({record_str}) was never completed. "
                     f"Did you forget to call .returns(), .raises(), or .runs()?"
                 )
             else:
                 return TMockVerificationError(
-                    f"Incomplete verification: checks().verify({record_str}) was never completed. "
+                    f"Incomplete verification: verify().call({record_str}) was never completed. "
                     f"Did you forget to call .times(), .once(), .never(), .called(), .at_least(), or .at_most()?"
                 )
         return TMockStubbingError("Unknown DSL state error.")
