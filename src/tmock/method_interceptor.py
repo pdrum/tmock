@@ -112,13 +112,13 @@ class MethodInterceptor:
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         dsl = get_dsl_state()
-        dsl.check_no_pending()
+        dsl.check_no_waiting_for_terminal()
         bound_args = self._bind_arguments(args, kwargs)
         self._validate_arg_types(bound_args)
         arguments = tuple(RecordedArgument(ba.name, ba.value) for ba in bound_args)
         record = CallRecord(self.__name, arguments)
 
-        if dsl.is_in_dsl_mode():
+        if dsl.is_awaiting_mock_call():
             dsl.record_dsl_call(self, record)
             return None
 
@@ -174,8 +174,6 @@ class MethodInterceptor:
 
 
 class DslState:
-    """Tracks the current DSL operation state."""
-
     def __init__(self) -> None:
         self.phase: DslPhase = DslPhase.NONE
         self.type: DslType | None = None
@@ -212,13 +210,12 @@ class DslState:
         self.interceptor = None
         self.record = None
 
-    def check_no_pending(self) -> None:
+    def check_no_waiting_for_terminal(self) -> None:
         """Raise if there's an incomplete DSL operation (but not if we're in AWAITING_CALL phase)."""
         if self.phase == DslPhase.AWAITING_TERMINAL:
             raise self._incomplete_error()
 
-    def is_in_dsl_mode(self) -> bool:
-        """Check if we're currently in DSL mode (given/verify called, awaiting mock call)."""
+    def is_awaiting_mock_call(self) -> bool:
         return self.phase == DslPhase.AWAITING_CALL
 
     def reset(self) -> None:
