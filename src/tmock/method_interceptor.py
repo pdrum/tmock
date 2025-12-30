@@ -1,8 +1,9 @@
+from abc import ABC, abstractmethod
 from contextvars import ContextVar
 from dataclasses import dataclass
 from enum import Enum, auto
 from inspect import Parameter, Signature
-from typing import Any
+from typing import Any, Callable
 
 from typeguard import TypeCheckError, check_type
 
@@ -23,10 +24,62 @@ class BoundArgument:
     annotation: Any
 
 
-@dataclass
-class Stub:
-    call_record: CallRecord
-    return_value: Any
+class CallArguments:
+    """Container for accessing call arguments by name."""
+
+    def __init__(self, arguments: tuple[RecordedArgument, ...]):
+        self._args = {arg.name: arg.value for arg in arguments}
+
+    def get_by_name(self, name: str) -> Any:
+        """Get argument value by name. Raises KeyError if not found."""
+        if name not in self._args:
+            raise KeyError(f"No argument named '{name}'. Available: {list(self._args.keys())}")
+        return self._args[name]
+
+
+class Stub(ABC):
+    """Base class for all stub behaviors."""
+
+    def __init__(self, call_record: CallRecord):
+        self.call_record = call_record
+
+    @abstractmethod
+    def execute(self, arguments: CallArguments) -> Any:
+        """Execute the stub behavior with the actual call arguments."""
+        ...
+
+
+class ReturnsStub(Stub):
+    """Stub that returns a value."""
+
+    def __init__(self, call_record: CallRecord, value: Any):
+        super().__init__(call_record)
+        self.value = value
+
+    def execute(self, arguments: CallArguments) -> Any:
+        return self.value
+
+
+class RaisesStub(Stub):
+    """Stub that raises an exception."""
+
+    def __init__(self, call_record: CallRecord, exception: BaseException):
+        super().__init__(call_record)
+        self.exception = exception
+
+    def execute(self, arguments: CallArguments) -> Any:
+        raise self.exception
+
+
+class RunsStub(Stub):
+    """Stub that runs a custom action."""
+
+    def __init__(self, call_record: CallRecord, action: Callable[[CallArguments], Any]):
+        super().__init__(call_record)
+        self.action = action
+
+    def execute(self, arguments: CallArguments) -> Any:
+        return self.action(arguments)
 
 
 class MethodInterceptor:
@@ -43,9 +96,13 @@ class MethodInterceptor:
     def count_matching_calls(self, expected: CallRecord) -> int:
         return sum(1 for call in self.__calls if pattern_matches_call(expected, call))
 
-    def set_return_value(self, record: CallRecord, value: Any) -> None:
+    def add_stub(self, stub: Stub) -> None:
+        """Add a stub to this method."""
+        self.__stubs.append(stub)
+
+    def validate_return_type(self, value: Any) -> None:
+        """Validate that a value matches the method's return type annotation."""
         self._validate_return_type(value)
-        self.__stubs.append(Stub(record, value))
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         _check_no_pending_builders()
@@ -60,7 +117,8 @@ class MethodInterceptor:
     def _find_stub(self, record: CallRecord) -> Any:
         for stub in self.__stubs:
             if pattern_matches_call(stub.call_record, record):
-                return stub.return_value
+                arguments = CallArguments(record.arguments)
+                return stub.execute(arguments)
         return None
 
     def _bind_arguments(self, args: tuple[Any, ...], kwargs: dict[str, Any]) -> list[BoundArgument]:
@@ -132,8 +190,8 @@ def _check_no_pending_builders() -> None:
     pending = _pending_stub.get()
     if pending is not None:
         raise TMockStubbingError(
-            f"Incomplete stub: given({pending.format_call()}) was never completed with .returns(). "
-            f"Did you forget to call .returns()?"
+            f"Incomplete stub: given({pending.format_call()}) was never completed. "
+            f"Did you forget to call .returns(), .raises(), or .runs()?"
         )
 
     pending = _pending_verification.get()
