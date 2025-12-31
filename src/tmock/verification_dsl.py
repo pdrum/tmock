@@ -1,7 +1,8 @@
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from tmock.call_record import CallRecord
-from tmock.exceptions import TMockVerificationError
+from tmock.exceptions import TMockStubbingError, TMockVerificationError
+from tmock.field_ref import FieldRef
 from tmock.method_interceptor import (
     DslType,
     MethodInterceptor,
@@ -73,6 +74,36 @@ class VerifyBuilder:
             verify().call(mock.method(args)).times(n)
         """
         dsl = get_dsl_state()
+        interceptor, record = dsl.begin_terminal()
+        return VerificationBuilder(interceptor, record)
+
+    def get(self, field_ref: Any) -> VerificationBuilder:
+        """Capture a field getter pattern and return a verification builder.
+
+        Usage:
+            verify().get(mock.field).once()
+        """
+        if not isinstance(field_ref, FieldRef):
+            raise TMockStubbingError("get() expects a field access, e.g. verify().get(mock.field)")
+        dsl = get_dsl_state()
+        # Call the getter interceptor to record the pattern
+        field_ref.getter_interceptor()
+        interceptor, record = dsl.begin_terminal()
+        return VerificationBuilder(interceptor, record)
+
+    def set(self, field_ref: Any, value: Any) -> VerificationBuilder:
+        """Capture a field setter pattern and return a verification builder.
+
+        Usage:
+            verify().set(mock.field, value).once()
+        """
+        if not isinstance(field_ref, FieldRef):
+            raise TMockStubbingError("set() expects a field access, e.g. verify().set(mock.field, value)")
+        if field_ref.setter_interceptor is None:
+            raise TMockStubbingError(f"Field '{field_ref.name}' is read-only and cannot be set")
+        dsl = get_dsl_state()
+        # Call the setter interceptor with the value to record the pattern
+        field_ref.setter_interceptor(value)
         interceptor, record = dsl.begin_terminal()
         return VerificationBuilder(interceptor, record)
 

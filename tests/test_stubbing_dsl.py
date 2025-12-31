@@ -38,6 +38,48 @@ class TestStubbingDsl:
         with pytest.raises(TMockUnexpectedCallError):
             mock.foo(3)
 
+    def test_later_stub_overrides_earlier_for_same_args(self):
+        class SampleClass:
+            def foo(self, x: int) -> str:
+                return ""
+
+        mock = tmock(SampleClass)
+        given().call(mock.foo(1)).returns("first")
+        given().call(mock.foo(1)).returns("second")
+
+        assert mock.foo(1) == "second"
+
+    def test_later_stub_overrides_earlier_with_matchers(self):
+        from tmock import any
+
+        class SampleClass:
+            def foo(self, x: int) -> str:
+                return ""
+
+        mock = tmock(SampleClass)
+        given().call(mock.foo(any(int))).returns("any")
+        given().call(mock.foo(1)).returns("specific")
+
+        # Specific stub added later wins for value 1
+        assert mock.foo(1) == "specific"
+        # Other values still match the any() stub
+        assert mock.foo(2) == "any"
+
+    def test_more_specific_stub_added_earlier_loses_to_general_stub(self):
+        from tmock import any
+
+        class SampleClass:
+            def foo(self, x: int) -> str:
+                return ""
+
+        mock = tmock(SampleClass)
+        given().call(mock.foo(1)).returns("specific")
+        given().call(mock.foo(any(int))).returns("any")
+
+        # Later any() stub wins even for value 1
+        assert mock.foo(1) == "any"
+        assert mock.foo(2) == "any"
+
 
 class TestIncompleteStubDetection:
     """Tests that incomplete given().call() calls are detected and raise errors."""

@@ -1,6 +1,8 @@
-from typing import Callable, Generic, TypeVar
+from typing import Any, Callable, Generic, TypeVar
 
 from tmock.call_record import CallRecord
+from tmock.exceptions import TMockStubbingError
+from tmock.field_ref import FieldRef
 from tmock.method_interceptor import (
     CallArguments,
     DslType,
@@ -54,6 +56,36 @@ class GivenBuilder:
             given().call(mock.method(args)).returns(value)
         """
         dsl = get_dsl_state()
+        interceptor, record = dsl.begin_terminal()
+        return StubbingBuilder(interceptor, record)
+
+    def get(self, field_ref: Any) -> StubbingBuilder[R]:
+        """Capture a field getter pattern and return a stubbing builder.
+
+        Usage:
+            given().get(mock.field).returns(value)
+        """
+        if not isinstance(field_ref, FieldRef):
+            raise TMockStubbingError("get() expects a field access, e.g. given().get(mock.field)")
+        dsl = get_dsl_state()
+        # Call the getter interceptor to record the pattern
+        field_ref.getter_interceptor()
+        interceptor, record = dsl.begin_terminal()
+        return StubbingBuilder(interceptor, record)
+
+    def set(self, field_ref: Any, value: Any) -> StubbingBuilder[None]:
+        """Capture a field setter pattern and return a stubbing builder.
+
+        Usage:
+            given().set(mock.field, value).returns(None)
+        """
+        if not isinstance(field_ref, FieldRef):
+            raise TMockStubbingError("set() expects a field access, e.g. given().set(mock.field, value)")
+        if field_ref.setter_interceptor is None:
+            raise TMockStubbingError(f"Field '{field_ref.name}' is read-only and cannot be set")
+        dsl = get_dsl_state()
+        # Call the setter interceptor with the value to record the pattern
+        field_ref.setter_interceptor(value)
         interceptor, record = dsl.begin_terminal()
         return StubbingBuilder(interceptor, record)
 

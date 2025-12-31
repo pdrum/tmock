@@ -181,14 +181,16 @@ class FieldDiscovery:
 
     def _extract_property_setter_signature(self, setter: Any) -> Signature:
         """Creates a signature for a property setter (one 'value' param, returns None)."""
-        if setter is None:
-            return Signature(return_annotation=type(None))
-
+        value_type: Any = Signature.empty
         try:
             hints = get_type_hints(setter)
-            value_type = hints.get("value", Signature.empty)
+            # Get the first non-return hint (the value parameter, regardless of its name)
+            for param_name, param_type in hints.items():
+                if param_name != "return":
+                    value_type = param_type
+                    break
         except Exception:
-            value_type = Signature.empty
+            pass
 
         value_param = Parameter("value", Parameter.POSITIONAL_OR_KEYWORD, annotation=value_type)
         return Signature(parameters=[value_param], return_annotation=type(None))

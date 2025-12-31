@@ -2,7 +2,8 @@ from typing import Any, Type, TypeVar
 
 from tmock.class_schema import FieldSchema, introspect_class
 from tmock.exceptions import TMockUnexpectedCallError
-from tmock.method_interceptor import MethodInterceptor
+from tmock.field_ref import FieldRef
+from tmock.method_interceptor import MethodInterceptor, get_dsl_state
 
 T = TypeVar("T")
 
@@ -44,6 +45,11 @@ def tmock(cls: Type[T]) -> T:
         return interceptors[name]
 
     def _get_field_value(self: TMock, name: str) -> Any:
+        dsl = get_dsl_state()
+        if dsl.is_awaiting_mock_interaction():
+            getter = _get_or_create_getter(self, name)
+            setter = _get_or_create_setter(self, name)
+            return FieldRef(self, name, getter, setter)
         getters: dict[str, MethodInterceptor] = object.__getattribute__(self, "__field_getter_interceptors")
         if existing := getters.get(name):
             return existing()
@@ -51,16 +57,29 @@ def tmock(cls: Type[T]) -> T:
         getters[name] = MethodInterceptor(name, field.getter_signature, cls.__name__)
         return getters[name]()
 
-    def _set_field_value(self: TMock, name: str, value: Any) -> None:
+    def _get_or_create_getter(self: TMock, name: str) -> MethodInterceptor:
+        getters: dict[str, MethodInterceptor] = object.__getattribute__(self, "__field_getter_interceptors")
+        if existing := getters.get(name):
+            return existing
+        field: FieldSchema = schema.fields[name]
+        getters[name] = MethodInterceptor(name, field.getter_signature, cls.__name__)
+        return getters[name]
+
+    def _get_or_create_setter(self: TMock, name: str) -> MethodInterceptor | None:
         field: FieldSchema = schema.fields[name]
         if field.setter_signature is None:
-            raise TMockUnexpectedCallError(f"{cls.__name__}.{name} is read-only")
+            return None
         setters: dict[str, MethodInterceptor] = object.__getattribute__(self, "__field_setter_interceptors")
         if existing := setters.get(name):
-            existing(value)
-            return
+            return existing
         setters[name] = MethodInterceptor(name, field.setter_signature, cls.__name__)
-        setters[name](value)
+        return setters[name]
+
+    def _set_field_value(self: TMock, name: str, value: Any) -> None:
+        setter = _get_or_create_setter(self, name)
+        if setter is None:
+            raise TMockUnexpectedCallError(f"{cls.__name__}.{name} is read-only")
+        setter(value)
 
     instance = object.__new__(TMock)
     TMock.__init__(instance)

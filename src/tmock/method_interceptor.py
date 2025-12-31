@@ -126,7 +126,8 @@ class MethodInterceptor:
         return self._find_stub(record)
 
     def _find_stub(self, record: CallRecord) -> Any:
-        for stub in self.__stubs:
+        # Iterate in reverse so later stubs take precedence
+        for stub in reversed(self.__stubs):
             if pattern_matches_call(stub.call_record, record):
                 arguments = CallArguments(record.arguments)
                 return stub.execute(arguments)
