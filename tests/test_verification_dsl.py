@@ -281,7 +281,7 @@ class TestVerifyEdgeCases:
     def test_verify_without_mock_call_raises_error(self):
         with pytest.raises(TMockStubbingError) as exc_info:
             verify().call(None).called()
-        assert "verify() was called but no mock method was invoked" in str(exc_info.value)
+        assert "verify() was called but no mock interaction occurred" in str(exc_info.value)
 
     def test_verify_distinguishes_calls_by_args(self):
         mock = tmock(Calculator)

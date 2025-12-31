@@ -166,9 +166,11 @@ class TestReturnTypeValidation:
 
 class TestGivenWithoutMockCall:
     def test_given_without_mock_call_raises(self):
-        with pytest.raises(TMockStubbingError, match=re.escape(r"given() was called but no mock method was invoked.")):
+        with pytest.raises(
+            TMockStubbingError, match=re.escape(r"given() was called but no mock interaction occurred.")
+        ):
             given().call(42)
 
     def test_given_with_none_raises(self):
-        with pytest.raises(TMockStubbingError, match=re.escape("given() was called but no mock method was invoked.")):
+        with pytest.raises(TMockStubbingError, match=re.escape("given() was called but no mock interaction occurred.")):
             given().call(None)
