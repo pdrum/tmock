@@ -17,6 +17,30 @@ class TestAnyMatcherStubbing:
         assert mock.foo(999) == "matched"
         assert mock.foo(-42) == "matched"
 
+    def test_any_without_type_matches_anything(self):
+        class SampleClass:
+            def foo(self, x: int) -> str:
+                return ""
+
+        mock = tmock(SampleClass)
+        given().call(mock.foo(any())).returns("matched")
+
+        assert mock.foo(1) == "matched"
+        assert mock.foo(999) == "matched"
+        assert mock.foo(-42) == "matched"
+
+    def test_any_without_type_matches_different_types(self):
+        class SampleClass:
+            def process(self, value: int | str | list) -> str:
+                return ""
+
+        mock = tmock(SampleClass)
+        given().call(mock.process(any())).returns("matched")
+
+        assert mock.process(42) == "matched"
+        assert mock.process("hello") == "matched"
+        assert mock.process([1, 2, 3]) == "matched"
+
     def test_any_matcher_does_not_match_wrong_type(self):
         class SampleClass:
             def foo(self, x: int) -> str:
@@ -55,6 +79,21 @@ class TestAnyMatcherVerification:
         mock.foo(3)
 
         verify().call(mock.foo(any(int))).times(3)
+
+    def test_any_without_type_verifies_all_calls(self):
+        class SampleClass:
+            def process(self, value: int | str | list) -> None:
+                pass
+
+        mock = tmock(SampleClass)
+        given().call(mock.process(any())).returns(None)
+        mock.process(42)
+        mock.process("hello")
+        mock.process([1, 2, 3])
+
+        verify().call(mock.process(any())).times(3)
+        verify().call(mock.process(42)).once()
+        verify().call(mock.process("hello")).once()
 
     def test_any_matcher_verification_with_mixed_args(self):
         class SampleClass:
