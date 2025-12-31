@@ -19,7 +19,7 @@ class DslType(Enum):
 
 class DslPhase(Enum):
     NONE = auto()
-    AWAITING_CALL = auto()
+    AWAITING_MOCK_INTERACTION = auto()
     AWAITING_TERMINAL = auto()
 
 
@@ -112,13 +112,13 @@ class MethodInterceptor:
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         dsl = get_dsl_state()
-        dsl.check_no_waiting_for_terminal()
+        dsl.check_no_pending_terminal()
         bound_args = self._bind_arguments(args, kwargs)
         self._validate_arg_types(bound_args)
         arguments = tuple(RecordedArgument(ba.name, ba.value) for ba in bound_args)
         record = CallRecord(self.__name, arguments)
 
-        if dsl.is_awaiting_mock_call():
+        if dsl.is_awaiting_mock_interaction():
             dsl.record_dsl_call(self, record)
             return None
 
@@ -126,7 +126,8 @@ class MethodInterceptor:
         return self._find_stub(record)
 
     def _find_stub(self, record: CallRecord) -> Any:
-        for stub in self.__stubs:
+        # Iterate in reverse so later stubs take precedence
+        for stub in reversed(self.__stubs):
             if pattern_matches_call(stub.call_record, record):
                 arguments = CallArguments(record.arguments)
                 return stub.execute(arguments)
@@ -184,7 +185,7 @@ class DslState:
         """Called by given() or verify() to enter DSL mode."""
         if self.phase != DslPhase.NONE:
             raise self._incomplete_error()
-        self.phase = DslPhase.AWAITING_CALL
+        self.phase = DslPhase.AWAITING_MOCK_INTERACTION
         self.type = dsl_type
 
     def record_dsl_call(self, interceptor: MethodInterceptor, record: CallRecord) -> None:
@@ -198,8 +199,8 @@ class DslState:
         if self.phase != DslPhase.AWAITING_TERMINAL:
             if self.phase == DslPhase.NONE:
                 raise TMockStubbingError("Must call given() or verify() before .call().")
-            elif self.phase == DslPhase.AWAITING_CALL:
-                raise TMockStubbingError(f"{self._dsl_name()}() was called but no mock method was invoked.")
+            elif self.phase == DslPhase.AWAITING_MOCK_INTERACTION:
+                raise TMockStubbingError(f"{self._dsl_name()}() was called but no mock interaction occurred.")
         assert self.interceptor is not None and self.record is not None
         return self.interceptor, self.record
 
@@ -210,13 +211,13 @@ class DslState:
         self.interceptor = None
         self.record = None
 
-    def check_no_waiting_for_terminal(self) -> None:
-        """Raise if there's an incomplete DSL operation (but not if we're in AWAITING_CALL phase)."""
+    def check_no_pending_terminal(self) -> None:
+        """Raise if there's an incomplete DSL operation awaiting terminal method."""
         if self.phase == DslPhase.AWAITING_TERMINAL:
             raise self._incomplete_error()
 
-    def is_awaiting_mock_call(self) -> bool:
-        return self.phase == DslPhase.AWAITING_CALL
+    def is_awaiting_mock_interaction(self) -> bool:
+        return self.phase == DslPhase.AWAITING_MOCK_INTERACTION
 
     def reset(self) -> None:
         """Reset the state completely (for test cleanup)."""
@@ -233,9 +234,9 @@ class DslState:
         raise ValueError(f"Unknown DSL type: {self.type}")
 
     def _incomplete_error(self) -> Exception:
-        if self.phase == DslPhase.AWAITING_CALL:
+        if self.phase == DslPhase.AWAITING_MOCK_INTERACTION:
             return TMockStubbingError(
-                f"Incomplete DSL: {self._dsl_name()}() was called but no mock method was invoked."
+                f"Incomplete DSL: {self._dsl_name()}() was called but no mock interaction occurred."
             )
         elif self.phase == DslPhase.AWAITING_TERMINAL:
             record_str = self.record.format_call() if self.record else "unknown"
