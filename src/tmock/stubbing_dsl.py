@@ -1,4 +1,5 @@
-from typing import Any, Callable, Coroutine, Generic, TypeVar, overload
+from inspect import iscoroutinefunction
+from typing import Any, Awaitable, Callable, Generic, TypeVar, overload
 
 from tmock.call_record import CallRecord
 from tmock.exceptions import TMockStubbingError
@@ -36,6 +37,11 @@ class StubbingBuilder(Generic[R]):
 
     def runs(self, action: Callable[[CallArguments], R]) -> None:
         """Stub the method to execute the given action with call arguments."""
+        if iscoroutinefunction(action):
+            raise TMockStubbingError(
+                "runs() does not support async callbacks. Use a sync callback instead - "
+                "it works for both sync and async methods."
+            )
 
         def validated_action(args: CallArguments) -> R:
             result = action(args)
@@ -50,7 +56,7 @@ class GivenBuilder:
     """Builder returned by given() to capture mock method calls for stubbing."""
 
     @overload
-    def call(self, _: Coroutine[Any, Any, R]) -> StubbingBuilder[R]: ...
+    def call(self, _: Awaitable[R]) -> StubbingBuilder[R]: ...
 
     @overload
     def call(self, _: R) -> StubbingBuilder[R]: ...

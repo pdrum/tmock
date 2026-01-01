@@ -1,4 +1,4 @@
-from typing import Any, Coroutine, TypeVar, overload
+from typing import Any, Awaitable, TypeVar, overload
 
 from tmock.call_record import CallRecord
 from tmock.exceptions import TMockStubbingError, TMockVerificationError
@@ -68,7 +68,7 @@ class VerifyBuilder:
     """Builder returned by verify() to capture mock method calls for verification."""
 
     @overload
-    def call(self, _: Coroutine[Any, Any, R]) -> VerificationBuilder: ...
+    def call(self, _: Awaitable[R]) -> VerificationBuilder: ...
 
     @overload
     def call(self, _: R) -> VerificationBuilder: ...
