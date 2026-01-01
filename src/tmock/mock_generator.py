@@ -46,7 +46,8 @@ def tmock(cls: Type[T], extra_fields: list[str] | None = None) -> T:
         interceptors: dict[str, MethodInterceptor] = object.__getattribute__(self, "__method_interceptors")
         if existing := interceptors.get(name):
             return existing
-        interceptors[name] = MethodInterceptor(name, schema.method_signatures[name], cls.__name__)
+        is_async = name in schema.async_methods
+        interceptors[name] = MethodInterceptor(name, schema.method_signatures[name], cls.__name__, is_async)
         return interceptors[name]
 
     def _get_field_value(self: TMock, name: str) -> Any:

@@ -1,7 +1,7 @@
 import dataclasses
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from inspect import Parameter, Signature, signature
+from inspect import Parameter, Signature, iscoroutinefunction, signature
 from typing import Any, ClassVar, Type, get_origin, get_type_hints
 
 
@@ -32,6 +32,7 @@ class ClassSchema:
     method_signatures: dict[str, Signature] = field(default_factory=dict)
     fields: dict[str, FieldSchema] = field(default_factory=dict)
     class_or_static: set[str] = field(default_factory=set)
+    async_methods: set[str] = field(default_factory=set)
 
 
 class FieldDiscovery:
@@ -218,6 +219,8 @@ def introspect_class(cls: Type[Any], extra_fields: list[str] | None = None) -> C
             schema.class_or_static.add(name)
         elif callable(raw_attr) and not isinstance(raw_attr, property):
             schema.method_signatures[name] = _extract_instance_method_signature(raw_attr)
+            if iscoroutinefunction(raw_attr):
+                schema.async_methods.add(name)
 
     return schema
 
