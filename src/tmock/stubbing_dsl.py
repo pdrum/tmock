@@ -1,4 +1,4 @@
-from typing import Any, Callable, Generic, TypeVar
+from typing import Any, Callable, Coroutine, Generic, TypeVar, overload
 
 from tmock.call_record import CallRecord
 from tmock.exceptions import TMockStubbingError
@@ -49,7 +49,13 @@ class StubbingBuilder(Generic[R]):
 class GivenBuilder:
     """Builder returned by given() to capture mock method calls for stubbing."""
 
-    def call(self, _: R) -> StubbingBuilder[R]:
+    @overload
+    def call(self, _: Coroutine[Any, Any, R]) -> StubbingBuilder[R]: ...
+
+    @overload
+    def call(self, _: R) -> StubbingBuilder[R]: ...
+
+    def call(self, _: Any) -> StubbingBuilder[Any]:
         """Capture the mock method call pattern and return a stubbing builder.
 
         Usage:
