@@ -197,8 +197,41 @@ class Interceptor(ABC):
 class MethodInterceptor(Interceptor):
     """Interceptor for method calls."""
 
+    def __init__(self, name: str, signature: Signature, class_name: str, is_async: bool = False):
+        super().__init__(name, signature, class_name)
+        self._is_async = is_async
+
     def _create_record(self, arguments: tuple[RecordedArgument, ...]) -> CallRecord:
         return MethodCallRecord(self._name, arguments)
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        dsl = get_dsl_state()
+        dsl.check_no_pending_terminal()
+        bound_args = self._bind_arguments(args, kwargs)
+        self._validate_arg_types(bound_args)
+        arguments = tuple(RecordedArgument(ba.name, ba.value) for ba in bound_args)
+        record = self._create_record(arguments)
+
+        if dsl.is_awaiting_mock_interaction():
+            dsl.record_dsl_call(self, record)
+            return None
+
+        # Async methods must return a coroutine object that can be awaited.
+        # We dispatch to _async_call (which is async def) to get this behavior.
+        if self._is_async:
+            return self._async_call(record)
+        return self._sync_call(record)
+
+    def _sync_call(self, record: CallRecord) -> Any:
+        self._calls.append(record)
+        return self._find_stub(record)
+
+    async def _async_call(self, record: CallRecord) -> Any:
+        # The 'async def' keyword makes this return a coroutine object.
+        # The logic is identical to _sync_call, but wrapping it in async def
+        # means callers must 'await' the result, matching real async method behavior.
+        self._calls.append(record)
+        return self._find_stub(record)
 
 
 class GetterInterceptor(Interceptor):
