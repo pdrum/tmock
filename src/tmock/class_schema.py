@@ -12,7 +12,7 @@ class FieldSource(Enum):
     ANNOTATION = auto()
     DATACLASS = auto()
     PYDANTIC = auto()
-    UNSAFE = auto()
+    EXTRA = auto()
 
 
 @dataclass
@@ -196,13 +196,19 @@ class FieldDiscovery:
         return Signature(parameters=[value_param], return_annotation=type(None))
 
 
-def introspect_class(cls: Type[Any]) -> ClassSchema:
+def introspect_class(cls: Type[Any], extra_fields: list[str] | None = None) -> ClassSchema:
     """Analyzes a class and extracts metadata about its members."""
     schema = ClassSchema()
 
     # Discover fields
     discovery = FieldDiscovery(cls)
     schema.fields = discovery.discover_all()
+
+    # Add extra fields (untyped, user-declared)
+    if extra_fields:
+        for name in extra_fields:
+            if name not in schema.fields:
+                schema.fields[name] = _create_extra_field_schema(name)
 
     # Discover methods and class/static members
     for name in dir(cls):
@@ -219,6 +225,19 @@ def introspect_class(cls: Type[Any]) -> ClassSchema:
             schema.method_signatures[name] = _extract_instance_method_signature(raw_attr)
 
     return schema
+
+
+def _create_extra_field_schema(name: str) -> FieldSchema:
+    """Create a FieldSchema for an extra field with no type info."""
+    getter_sig = Signature(return_annotation=Any)
+    value_param = Parameter("value", Parameter.POSITIONAL_OR_KEYWORD, annotation=Any)
+    setter_sig = Signature(parameters=[value_param], return_annotation=type(None))
+    return FieldSchema(
+        name=name,
+        getter_signature=getter_sig,
+        setter_signature=setter_sig,
+        source=FieldSource.EXTRA,
+    )
 
 
 def _get_raw_attribute(cls: Type[Any], name: str) -> Any:

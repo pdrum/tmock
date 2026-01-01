@@ -8,8 +8,8 @@ from tmock.method_interceptor import MethodInterceptor, get_dsl_state
 T = TypeVar("T")
 
 
-def tmock(cls: Type[T]) -> T:
-    schema = introspect_class(cls)
+def tmock(cls: Type[T], extra_fields: list[str] | None = None) -> T:
+    schema = introspect_class(cls, extra_fields=extra_fields)
 
     class TMock(cls):  # type: ignore[valid-type, misc]
         def __init__(self) -> None:
