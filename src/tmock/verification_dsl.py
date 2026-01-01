@@ -5,7 +5,7 @@ from tmock.exceptions import TMockStubbingError, TMockVerificationError
 from tmock.field_ref import FieldRef
 from tmock.method_interceptor import (
     DslType,
-    MethodInterceptor,
+    Interceptor,
     get_dsl_state,
 )
 
@@ -15,7 +15,7 @@ R = TypeVar("R")
 class VerificationBuilder:
     """Builder for configuring verification assertions after .call()."""
 
-    def __init__(self, interceptor: MethodInterceptor, expected: CallRecord):
+    def __init__(self, interceptor: Interceptor, expected: CallRecord):
         self._interceptor = interceptor
         self._expected = expected
 

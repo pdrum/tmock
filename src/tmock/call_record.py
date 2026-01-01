@@ -1,14 +1,8 @@
-from dataclasses import dataclass, field
-from enum import Enum, auto
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any
 
 from tmock.matchers.base import Matcher
-
-
-class CallType(Enum):
-    METHOD = auto()
-    GETTER = auto()
-    SETTER = auto()
 
 
 @dataclass(frozen=True)
@@ -18,20 +12,34 @@ class RecordedArgument:
 
 
 @dataclass(frozen=True)
-class CallRecord:
+class CallRecord(ABC):
     name: str
     arguments: tuple[RecordedArgument, ...]
-    call_type: CallType = field(default=CallType.METHOD)
 
+    @abstractmethod
     def format_call(self) -> str:
-        if self.call_type == CallType.GETTER:
-            return f"get {self.name}"
-        elif self.call_type == CallType.SETTER:
-            value = self.arguments[0].value if self.arguments else "?"
-            return f"set {self.name} = {_format_value(value)}"
-        else:
-            args_str = ", ".join(f"{arg.name}={_format_value(arg.value)}" for arg in self.arguments)
-            return f"{self.name}({args_str})"
+        """Format this call for display in error messages."""
+        ...
+
+
+@dataclass(frozen=True)
+class MethodCallRecord(CallRecord):
+    def format_call(self) -> str:
+        args_str = ", ".join(f"{arg.name}={_format_value(arg.value)}" for arg in self.arguments)
+        return f"{self.name}({args_str})"
+
+
+@dataclass(frozen=True)
+class GetterCallRecord(CallRecord):
+    def format_call(self) -> str:
+        return f"get {self.name}"
+
+
+@dataclass(frozen=True)
+class SetterCallRecord(CallRecord):
+    def format_call(self) -> str:
+        value = self.arguments[0].value if self.arguments else "?"
+        return f"set {self.name} = {_format_value(value)}"
 
 
 def _format_value(v: Any) -> str:

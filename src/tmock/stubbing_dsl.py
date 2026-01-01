@@ -6,7 +6,7 @@ from tmock.field_ref import FieldRef
 from tmock.method_interceptor import (
     CallArguments,
     DslType,
-    MethodInterceptor,
+    Interceptor,
     RaisesStub,
     ReturnsStub,
     RunsStub,
@@ -19,7 +19,7 @@ R = TypeVar("R")
 class StubbingBuilder(Generic[R]):
     """Builder for configuring stub behavior after .call()."""
 
-    def __init__(self, interceptor: MethodInterceptor, record: CallRecord):
+    def __init__(self, interceptor: Interceptor, record: CallRecord):
         self._interceptor = interceptor
         self._record = record
 

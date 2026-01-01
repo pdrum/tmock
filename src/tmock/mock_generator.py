@@ -1,10 +1,14 @@
 from typing import Any, Type, TypeVar
 
-from tmock.call_record import CallType
 from tmock.class_schema import FieldSchema, introspect_class
 from tmock.exceptions import TMockUnexpectedCallError
 from tmock.field_ref import FieldRef
-from tmock.method_interceptor import MethodInterceptor, get_dsl_state
+from tmock.method_interceptor import (
+    GetterInterceptor,
+    MethodInterceptor,
+    SetterInterceptor,
+    get_dsl_state,
+)
 
 T = TypeVar("T")
 
@@ -42,7 +46,7 @@ def tmock(cls: Type[T], extra_fields: list[str] | None = None) -> T:
         interceptors: dict[str, MethodInterceptor] = object.__getattribute__(self, "__method_interceptors")
         if existing := interceptors.get(name):
             return existing
-        interceptors[name] = MethodInterceptor(name, schema.method_signatures[name], cls.__name__, CallType.METHOD)
+        interceptors[name] = MethodInterceptor(name, schema.method_signatures[name], cls.__name__)
         return interceptors[name]
 
     def _get_field_value(self: TMock, name: str) -> Any:
@@ -51,29 +55,29 @@ def tmock(cls: Type[T], extra_fields: list[str] | None = None) -> T:
             getter = _get_or_create_getter(self, name)
             setter = _get_or_create_setter(self, name)
             return FieldRef(self, name, getter, setter)
-        getters: dict[str, MethodInterceptor] = object.__getattribute__(self, "__field_getter_interceptors")
+        getters: dict[str, GetterInterceptor] = object.__getattribute__(self, "__field_getter_interceptors")
         if existing := getters.get(name):
             return existing()
         field: FieldSchema = schema.fields[name]
-        getters[name] = MethodInterceptor(name, field.getter_signature, cls.__name__, CallType.GETTER)
+        getters[name] = GetterInterceptor(name, field.getter_signature, cls.__name__)
         return getters[name]()
 
-    def _get_or_create_getter(self: TMock, name: str) -> MethodInterceptor:
-        getters: dict[str, MethodInterceptor] = object.__getattribute__(self, "__field_getter_interceptors")
+    def _get_or_create_getter(self: TMock, name: str) -> GetterInterceptor:
+        getters: dict[str, GetterInterceptor] = object.__getattribute__(self, "__field_getter_interceptors")
         if existing := getters.get(name):
             return existing
         field: FieldSchema = schema.fields[name]
-        getters[name] = MethodInterceptor(name, field.getter_signature, cls.__name__, CallType.GETTER)
+        getters[name] = GetterInterceptor(name, field.getter_signature, cls.__name__)
         return getters[name]
 
-    def _get_or_create_setter(self: TMock, name: str) -> MethodInterceptor | None:
+    def _get_or_create_setter(self: TMock, name: str) -> SetterInterceptor | None:
         field: FieldSchema = schema.fields[name]
         if field.setter_signature is None:
             return None
-        setters: dict[str, MethodInterceptor] = object.__getattribute__(self, "__field_setter_interceptors")
+        setters: dict[str, SetterInterceptor] = object.__getattribute__(self, "__field_setter_interceptors")
         if existing := setters.get(name):
             return existing
-        setters[name] = MethodInterceptor(name, field.setter_signature, cls.__name__, CallType.SETTER)
+        setters[name] = SetterInterceptor(name, field.setter_signature, cls.__name__)
         return setters[name]
 
     def _set_field_value(self: TMock, name: str, value: Any) -> None:
