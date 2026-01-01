@@ -181,6 +181,17 @@ class TestAsyncRuns:
 
         assert captured == [1, 2, 3]
 
+    def test_async_callback_raises_error(self):
+        async def async_callback(args):
+            return args.get_by_name("value") * 2
+
+        mock = tmock(AsyncService)
+
+        with pytest.raises(TMockStubbingError) as exc_info:
+            given().call(mock.process(any(int))).runs(async_callback)
+
+        assert "runs() does not support async callbacks" in str(exc_info.value)
+
 
 class TestMixedSyncAsync:
     """Tests for classes with both sync and async methods."""
