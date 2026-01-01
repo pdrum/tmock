@@ -216,6 +216,8 @@ class MethodInterceptor(Interceptor):
             dsl.record_dsl_call(self, record)
             return None
 
+        # Async methods must return a coroutine object that can be awaited.
+        # We dispatch to _async_call (which is async def) to get this behavior.
         if self._is_async:
             return self._async_call(record)
         return self._sync_call(record)
@@ -225,6 +227,9 @@ class MethodInterceptor(Interceptor):
         return self._find_stub(record)
 
     async def _async_call(self, record: CallRecord) -> Any:
+        # The 'async def' keyword makes this return a coroutine object.
+        # The logic is identical to _sync_call, but wrapping it in async def
+        # means callers must 'await' the result, matching real async method behavior.
         self._calls.append(record)
         return self._find_stub(record)
 
