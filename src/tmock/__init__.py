@@ -1,5 +1,5 @@
+from tmock.interceptor import CallArguments
 from tmock.matchers.any import any
-from tmock.method_interceptor import CallArguments
 from tmock.mock_generator import tmock
 from tmock.reset import reset, reset_behaviors, reset_interactions
 from tmock.stubbing_dsl import given
