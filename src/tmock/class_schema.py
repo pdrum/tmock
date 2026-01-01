@@ -203,12 +203,7 @@ def introspect_class(cls: Type[Any], extra_fields: list[str] | None = None) -> C
     # Discover fields
     discovery = FieldDiscovery(cls)
     schema.fields = discovery.discover_all()
-
-    # Add extra fields (untyped, user-declared)
-    if extra_fields:
-        for name in extra_fields:
-            if name not in schema.fields:
-                schema.fields[name] = _create_extra_field_schema(name)
+    _apply_extra_fields_if_not_discovered(extra_fields, schema)
 
     # Discover methods and class/static members
     for name in dir(cls):
@@ -225,6 +220,14 @@ def introspect_class(cls: Type[Any], extra_fields: list[str] | None = None) -> C
             schema.method_signatures[name] = _extract_instance_method_signature(raw_attr)
 
     return schema
+
+
+def _apply_extra_fields_if_not_discovered(extra_fields, schema):
+    if not extra_fields:
+        return
+    for name in extra_fields:
+        if name not in schema.fields:
+            schema.fields[name] = _create_extra_field_schema(name)
 
 
 def _create_extra_field_schema(name: str) -> FieldSchema:
