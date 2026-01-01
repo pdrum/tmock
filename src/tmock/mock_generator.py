@@ -3,7 +3,7 @@ from typing import Any, Type, TypeVar
 from tmock.class_schema import FieldSchema, introspect_class
 from tmock.exceptions import TMockUnexpectedCallError
 from tmock.field_ref import FieldRef
-from tmock.method_interceptor import (
+from tmock.interceptor import (
     GetterInterceptor,
     MethodInterceptor,
     SetterInterceptor,

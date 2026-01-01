@@ -3,7 +3,7 @@ from typing import Any, Callable, Generic, TypeVar
 from tmock.call_record import CallRecord
 from tmock.exceptions import TMockStubbingError
 from tmock.field_ref import FieldRef
-from tmock.method_interceptor import (
+from tmock.interceptor import (
     CallArguments,
     DslType,
     Interceptor,

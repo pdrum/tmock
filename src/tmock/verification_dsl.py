@@ -3,7 +3,7 @@ from typing import Any, TypeVar
 from tmock.call_record import CallRecord
 from tmock.exceptions import TMockStubbingError, TMockVerificationError
 from tmock.field_ref import FieldRef
-from tmock.method_interceptor import (
+from tmock.interceptor import (
     DslType,
     Interceptor,
     get_dsl_state,

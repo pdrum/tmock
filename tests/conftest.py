@@ -1,6 +1,6 @@
 import pytest
 
-from tmock.method_interceptor import reset_dsl_state
+from tmock.interceptor import reset_dsl_state
 
 
 @pytest.fixture(autouse=True)

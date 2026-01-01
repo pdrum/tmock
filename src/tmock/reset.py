@@ -1,6 +1,6 @@
 from typing import Any
 
-from tmock.method_interceptor import MethodInterceptor
+from tmock.interceptor import MethodInterceptor
 
 
 def reset(mock: Any) -> None:
