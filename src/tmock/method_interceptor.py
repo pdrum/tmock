@@ -7,7 +7,14 @@ from typing import Any, Callable
 
 from typeguard import TypeCheckError, check_type
 
-from tmock.call_record import CallRecord, CallType, RecordedArgument, pattern_matches_call
+from tmock.call_record import (
+    CallRecord,
+    GetterCallRecord,
+    MethodCallRecord,
+    RecordedArgument,
+    SetterCallRecord,
+    pattern_matches_call,
+)
 from tmock.exceptions import TMockStubbingError, TMockUnexpectedCallError, TMockVerificationError
 from tmock.matchers.base import Matcher
 
@@ -88,32 +95,38 @@ class RunsStub(Stub):
         return self.action(arguments)
 
 
-class MethodInterceptor:
-    def __init__(self, name: str, signature: Signature, class_name: str, call_type: CallType):
-        self.__name = name
-        self.__signature = signature
-        self.__class_name = class_name
-        self.__call_type = call_type
-        self.__calls: list[CallRecord] = []
-        self.__stubs: list[Stub] = []
+class Interceptor(ABC):
+    """Base class for all interceptors (methods, getters, setters)."""
+
+    def __init__(self, name: str, signature: Signature, class_name: str):
+        self._name = name
+        self._signature = signature
+        self._class_name = class_name
+        self._calls: list[CallRecord] = []
+        self._stubs: list[Stub] = []
+
+    @abstractmethod
+    def _create_record(self, arguments: tuple[RecordedArgument, ...]) -> CallRecord:
+        """Create the appropriate CallRecord subclass for this interceptor type."""
+        raise NotImplementedError
 
     def pop_last_call(self) -> CallRecord:
-        return self.__calls.pop()
+        return self._calls.pop()
 
     def count_matching_calls(self, expected: CallRecord) -> int:
-        return sum(1 for call in self.__calls if pattern_matches_call(expected, call))
+        return sum(1 for call in self._calls if pattern_matches_call(expected, call))
 
     def add_stub(self, stub: Stub) -> None:
         """Add a stub to this method."""
-        self.__stubs.append(stub)
+        self._stubs.append(stub)
 
     def reset_interactions(self) -> None:
         """Clear all recorded calls."""
-        self.__calls.clear()
+        self._calls.clear()
 
     def reset_behaviors(self) -> None:
         """Clear all stubs."""
-        self.__stubs.clear()
+        self._stubs.clear()
 
     def validate_return_type(self, value: Any) -> None:
         """Validate that a value matches the method's return type annotation."""
@@ -125,35 +138,33 @@ class MethodInterceptor:
         bound_args = self._bind_arguments(args, kwargs)
         self._validate_arg_types(bound_args)
         arguments = tuple(RecordedArgument(ba.name, ba.value) for ba in bound_args)
-        record = CallRecord(self.__name, arguments, self.__call_type)
+        record = self._create_record(arguments)
 
         if dsl.is_awaiting_mock_interaction():
             dsl.record_dsl_call(self, record)
             return None
 
-        self.__calls.append(record)
+        self._calls.append(record)
         return self._find_stub(record)
 
     def _find_stub(self, record: CallRecord) -> Any:
         # Iterate in reverse so later stubs take precedence
-        for stub in reversed(self.__stubs):
+        for stub in reversed(self._stubs):
             if pattern_matches_call(stub.call_record, record):
                 arguments = CallArguments(record.arguments)
                 return stub.execute(arguments)
-        raise TMockUnexpectedCallError(
-            f"No matching behavior defined on {self.__class_name} for {record.format_call()}"
-        )
+        raise TMockUnexpectedCallError(f"No matching behavior defined on {self._class_name} for {record.format_call()}")
 
     def _bind_arguments(self, args: tuple[Any, ...], kwargs: dict[str, Any]) -> list[BoundArgument]:
         try:
-            bound = self.__signature.bind(*args, **kwargs)
+            bound = self._signature.bind(*args, **kwargs)
             bound.apply_defaults()
         except TypeError as e:
-            raise TMockStubbingError(f"Invalid args passed to {self.__name} => {e}")
+            raise TMockStubbingError(f"Invalid args passed to {self._name} => {e}")
 
         result = []
         for param_name, value in bound.arguments.items():
-            param = self.__signature.parameters[param_name]
+            param = self._signature.parameters[param_name]
             result.append(BoundArgument(param_name, value, param.annotation))
         return result
 
@@ -167,27 +178,48 @@ class MethodInterceptor:
                 check_type(arg.value, arg.annotation)
             except TypeCheckError:
                 raise TMockStubbingError(
-                    f"Invalid type for argument '{arg.name}' of {self.__name}, expected {arg.annotation}, "
+                    f"Invalid type for argument '{arg.name}' of {self._name}, expected {arg.annotation}, "
                     f"got {type(arg.value).__name__}"
                 )
 
     def _validate_return_type(self, value: Any) -> None:
-        return_annotation = self.__signature.return_annotation
+        return_annotation = self._signature.return_annotation
         if return_annotation is Signature.empty:
             return
         try:
             check_type(value, return_annotation)
         except TypeCheckError:
             raise TMockStubbingError(
-                f"Invalid return type for {self.__name}, expected {return_annotation}, got {type(value).__name__}"
+                f"Invalid return type for {self._name}, expected {return_annotation}, got {type(value).__name__}"
             )
+
+
+class MethodInterceptor(Interceptor):
+    """Interceptor for method calls."""
+
+    def _create_record(self, arguments: tuple[RecordedArgument, ...]) -> CallRecord:
+        return MethodCallRecord(self._name, arguments)
+
+
+class GetterInterceptor(Interceptor):
+    """Interceptor for property getter access."""
+
+    def _create_record(self, arguments: tuple[RecordedArgument, ...]) -> CallRecord:
+        return GetterCallRecord(self._name, arguments)
+
+
+class SetterInterceptor(Interceptor):
+    """Interceptor for property setter access."""
+
+    def _create_record(self, arguments: tuple[RecordedArgument, ...]) -> CallRecord:
+        return SetterCallRecord(self._name, arguments)
 
 
 class DslState:
     def __init__(self) -> None:
         self.phase: DslPhase = DslPhase.NONE
         self.type: DslType | None = None
-        self.interceptor: MethodInterceptor | None = None
+        self.interceptor: Interceptor | None = None
         self.record: CallRecord | None = None
 
     def enter_dsl_mode(self, dsl_type: DslType) -> None:
@@ -197,13 +229,13 @@ class DslState:
         self.phase = DslPhase.AWAITING_MOCK_INTERACTION
         self.type = dsl_type
 
-    def record_dsl_call(self, interceptor: MethodInterceptor, record: CallRecord) -> None:
+    def record_dsl_call(self, interceptor: Interceptor, record: CallRecord) -> None:
         """Called by mock method when in DSL mode to record the pattern."""
         self.phase = DslPhase.AWAITING_TERMINAL
         self.interceptor = interceptor
         self.record = record
 
-    def begin_terminal(self) -> tuple[MethodInterceptor, CallRecord]:
+    def begin_terminal(self) -> tuple[Interceptor, CallRecord]:
         """Called by .call() to get interceptor and record."""
         if self.phase != DslPhase.AWAITING_TERMINAL:
             if self.phase == DslPhase.NONE:
