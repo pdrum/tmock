@@ -1,7 +1,14 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import Enum, auto
 from typing import Any
 
 from tmock.matchers.base import Matcher
+
+
+class CallType(Enum):
+    METHOD = auto()
+    GETTER = auto()
+    SETTER = auto()
 
 
 @dataclass(frozen=True)
@@ -14,15 +21,23 @@ class RecordedArgument:
 class CallRecord:
     name: str
     arguments: tuple[RecordedArgument, ...]
+    call_type: CallType = field(default=CallType.METHOD)
 
     def format_call(self) -> str:
-        def format_value(v: Any) -> str:
-            if isinstance(v, Matcher):
-                return v.describe()
-            return repr(v)
+        if self.call_type == CallType.GETTER:
+            return f"get {self.name}"
+        elif self.call_type == CallType.SETTER:
+            value = self.arguments[0].value if self.arguments else "?"
+            return f"set {self.name} = {_format_value(value)}"
+        else:
+            args_str = ", ".join(f"{arg.name}={_format_value(arg.value)}" for arg in self.arguments)
+            return f"{self.name}({args_str})"
 
-        args_str = ", ".join(f"{arg.name}={format_value(arg.value)}" for arg in self.arguments)
-        return f"{self.name}({args_str})"
+
+def _format_value(v: Any) -> str:
+    if isinstance(v, Matcher):
+        return v.describe()
+    return repr(v)
 
 
 def pattern_matches_call(pattern: CallRecord, actual: CallRecord) -> bool:

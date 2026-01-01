@@ -7,7 +7,7 @@ from typing import Any, Callable
 
 from typeguard import TypeCheckError, check_type
 
-from tmock.call_record import CallRecord, RecordedArgument, pattern_matches_call
+from tmock.call_record import CallRecord, CallType, RecordedArgument, pattern_matches_call
 from tmock.exceptions import TMockStubbingError, TMockUnexpectedCallError, TMockVerificationError
 from tmock.matchers.base import Matcher
 
@@ -89,10 +89,11 @@ class RunsStub(Stub):
 
 
 class MethodInterceptor:
-    def __init__(self, name: str, signature: Signature, class_name: str):
+    def __init__(self, name: str, signature: Signature, class_name: str, call_type: CallType):
         self.__name = name
         self.__signature = signature
         self.__class_name = class_name
+        self.__call_type = call_type
         self.__calls: list[CallRecord] = []
         self.__stubs: list[Stub] = []
 
@@ -106,6 +107,14 @@ class MethodInterceptor:
         """Add a stub to this method."""
         self.__stubs.append(stub)
 
+    def reset_interactions(self) -> None:
+        """Clear all recorded calls."""
+        self.__calls.clear()
+
+    def reset_behaviors(self) -> None:
+        """Clear all stubs."""
+        self.__stubs.clear()
+
     def validate_return_type(self, value: Any) -> None:
         """Validate that a value matches the method's return type annotation."""
         self._validate_return_type(value)
@@ -116,7 +125,7 @@ class MethodInterceptor:
         bound_args = self._bind_arguments(args, kwargs)
         self._validate_arg_types(bound_args)
         arguments = tuple(RecordedArgument(ba.name, ba.value) for ba in bound_args)
-        record = CallRecord(self.__name, arguments)
+        record = CallRecord(self.__name, arguments, self.__call_type)
 
         if dsl.is_awaiting_mock_interaction():
             dsl.record_dsl_call(self, record)
