@@ -106,6 +106,14 @@ class MethodInterceptor:
         """Add a stub to this method."""
         self.__stubs.append(stub)
 
+    def reset_interactions(self) -> None:
+        """Clear all recorded calls."""
+        self.__calls.clear()
+
+    def reset_behaviors(self) -> None:
+        """Clear all stubs."""
+        self.__stubs.clear()
+
     def validate_return_type(self, value: Any) -> None:
         """Validate that a value matches the method's return type annotation."""
         self._validate_return_type(value)
