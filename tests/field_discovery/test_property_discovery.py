@@ -68,6 +68,17 @@ class TestPropertyDiscovery:
         assert params[0].name == "value"
         assert params[0].annotation is str
 
+    def test_property_defined_as_class_method_not_included(self):
+        class Sample:
+            @classmethod
+            @property
+            def invalid_prop(cls) -> str:
+                return "invalid"
+
+        schema = introspect_class(Sample)
+
+        assert "invalid_prop" not in schema.fields
+
     def test_property_without_type_hints(self):
         class Sample:
             @property

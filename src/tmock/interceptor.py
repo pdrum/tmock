@@ -3,7 +3,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from enum import Enum, auto
 from inspect import Parameter, Signature
-from typing import Any, Callable
+from typing import Any, Callable, TypeVar, overload
 
 from typeguard import TypeCheckError, check_type
 
@@ -17,6 +17,8 @@ from tmock.call_record import (
 )
 from tmock.exceptions import TMockStubbingError, TMockUnexpectedCallError, TMockVerificationError
 from tmock.matchers.base import Matcher
+
+T = TypeVar("T")
 
 
 class DslType(Enum):
@@ -43,11 +45,36 @@ class CallArguments:
     def __init__(self, arguments: tuple[RecordedArgument, ...]):
         self._args = {arg.name: arg.value for arg in arguments}
 
-    def get_by_name(self, name: str) -> Any:
-        """Get argument value by name. Raises KeyError if not found."""
+    @overload
+    def get_by_name(self, name: str) -> Any: ...
+
+    @overload
+    def get_by_name(self, name: str, expected_type: type[T]) -> T: ...
+
+    def get_by_name(self, name: str, expected_type: type[T] | None = None) -> Any:
+        """Get argument value by name.
+
+        Args:
+            name: The parameter name.
+            expected_type: Optional type for the return value. If provided,
+                          the value is checked against this type at runtime.
+
+        Returns:
+            The argument value, typed as T if expected_type is provided.
+
+        Raises:
+            KeyError: If no argument with the given name exists.
+            TypeError: If expected_type is provided and the value doesn't match.
+        """
         if name not in self._args:
             raise KeyError(f"No argument named '{name}'. Available: {list(self._args.keys())}")
-        return self._args[name]
+        value = self._args[name]
+        if expected_type is not None:
+            try:
+                check_type(value, expected_type)
+            except TypeCheckError:
+                raise TypeError(f"Argument '{name}' has type {type(value).__name__}, expected {expected_type.__name__}")
+        return value
 
 
 class Stub(ABC):
