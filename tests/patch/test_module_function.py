@@ -1,5 +1,3 @@
-from typing import cast
-
 import pytest
 
 from tests.patch import sample_module
@@ -108,10 +106,10 @@ class TestModuleFunctionPatchingRuns:
         call_log: list[tuple[int, int]] = []
 
         def log_and_return(args: CallArguments) -> int:
-            a = args.get_by_name("a")
-            b = args.get_by_name("b")
+            a = args.get_by_name("a", int)
+            b = args.get_by_name("b", int)
             call_log.append((a, b))
-            return cast(int, a * b)
+            return a * b
 
         with patch(sample_module).add as mock_add:
             given().call(mock_add(any(int), any(int))).runs(log_and_return)
