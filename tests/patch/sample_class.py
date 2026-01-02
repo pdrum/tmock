@@ -1,4 +1,4 @@
-"""Sample class for testing static and class method patching."""
+"""Sample classes for testing patching."""
 
 
 class Calculator:
@@ -29,3 +29,24 @@ class Calculator:
     @classmethod
     async def async_class_method(cls, x: int) -> str:
         return f"{cls.__name__}: {x}"
+
+
+class Counter:
+    """Sample class with instance methods for testing."""
+
+    def __init__(self, value: int = 0):
+        self.value = value
+
+    def increment(self, amount: int) -> int:
+        self.value += amount
+        return self.value
+
+    def get_value(self) -> int:
+        return self.value
+
+    def format_value(self, prefix: str) -> str:
+        return f"{prefix}: {self.value}"
+
+    async def async_increment(self, amount: int) -> int:
+        self.value += amount
+        return self.value

@@ -108,6 +108,45 @@ class ClassMethodPatchContext:
         setattr(self._cls, self._method_name, self._original)
 
 
+class InstanceMethodPatchContext:
+    """Context manager that patches an instance method on a class."""
+
+    def __init__(self, cls: type, method_name: str):
+        self._cls = cls
+        self._method_name = method_name
+        self._original: Any = None
+        self._interceptor: MethodInterceptor | None = None
+
+    def __enter__(self) -> MethodInterceptor:
+        self._original = inspect.getattr_static(self._cls, self._method_name)
+
+        sig = inspect.signature(self._original)
+        # Remove 'self' parameter from signature
+        params = list(sig.parameters.values())[1:]
+        sig = sig.replace(parameters=params)
+
+        is_async = inspect.iscoroutinefunction(self._original)
+
+        self._interceptor = MethodInterceptor(
+            name=self._method_name,
+            signature=sig,
+            class_name=self._cls.__name__,
+            is_async=is_async,
+        )
+
+        # Wrap interceptor to ignore self argument
+        interceptor = self._interceptor
+
+        def instance_method_wrapper(self_arg: Any, *args: Any, **kwargs: Any) -> Any:
+            return interceptor(*args, **kwargs)
+
+        setattr(self._cls, self._method_name, instance_method_wrapper)
+        return self._interceptor
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        setattr(self._cls, self._method_name, self._original)
+
+
 class ModulePatcher:
     """Proxy that captures attribute access for patching module functions."""
 
@@ -127,7 +166,7 @@ class ClassPatcher:
     def __init__(self, cls: type):
         object.__setattr__(self, "_cls", cls)
 
-    def __getattr__(self, name: str) -> StaticMethodPatchContext | ClassMethodPatchContext:
+    def __getattr__(self, name: str) -> StaticMethodPatchContext | ClassMethodPatchContext | InstanceMethodPatchContext:
         cls = object.__getattribute__(self, "_cls")
         if not hasattr(cls, name):
             raise AttributeError(f"Class '{cls.__name__}' has no attribute '{name}'")
@@ -138,10 +177,10 @@ class ClassPatcher:
             return StaticMethodPatchContext(cls, name)
         elif isinstance(attr, classmethod):
             return ClassMethodPatchContext(cls, name)
+        elif callable(attr):
+            return InstanceMethodPatchContext(cls, name)
         else:
-            raise TypeError(
-                f"'{name}' is not a staticmethod or classmethod. Instance method patching not yet supported."
-            )
+            raise TypeError(f"'{name}' is not a method.")
 
 
 def patch(target: ModuleType | type) -> ModulePatcher | ClassPatcher:
@@ -160,6 +199,12 @@ def patch(target: ModuleType | type) -> ModulePatcher | ClassPatcher:
         # Patch a class method
         with patch(MyClass).class_method as mock_method:
             given().call(mock_method("arg")).returns("mocked")
+
+        # Patch an instance method
+        with patch(MyClass).instance_method as mock_method:
+            given().call(mock_method("arg")).returns("mocked")
+            obj = MyClass()
+            obj.instance_method("arg")  # Returns "mocked"
     """
     if isinstance(target, ModuleType):
         return ModulePatcher(target)
