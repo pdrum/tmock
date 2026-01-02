@@ -1,7 +1,3 @@
-"""Patching mechanism for tmock."""
-
-from __future__ import annotations
-
 import inspect
 from types import ModuleType
 from typing import Any

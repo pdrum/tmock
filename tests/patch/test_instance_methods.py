@@ -1,5 +1,3 @@
-"""Tests for patching instance methods."""
-
 import pytest
 
 from tests.patch.sample_class import Counter

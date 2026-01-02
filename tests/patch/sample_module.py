@@ -1,6 +1,3 @@
-"""Sample module for testing patching."""
-
-
 def add(a: int, b: int) -> int:
     return a + b
 

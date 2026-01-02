@@ -1,6 +1,3 @@
-"""Sample classes for testing patching."""
-
-
 class Calculator:
     """Sample class with static and class methods."""
 
