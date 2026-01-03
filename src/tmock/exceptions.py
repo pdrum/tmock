@@ -8,3 +8,7 @@ class TMockVerificationError(AssertionError):
 
 class TMockUnexpectedCallError(Exception):
     pass
+
+
+class TMockPatchingError(Exception):
+    pass

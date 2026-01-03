@@ -2,6 +2,7 @@ import inspect
 from types import ModuleType
 from typing import Any
 
+from tmock.exceptions import TMockPatchingError
 from tmock.interceptor import MethodInterceptor
 
 
@@ -152,7 +153,7 @@ class ModulePatcher:
     def __getattr__(self, name: str) -> ModuleFunctionPatchContext:
         module = object.__getattribute__(self, "_module")
         if not hasattr(module, name):
-            raise AttributeError(f"Module '{module.__name__}' has no attribute '{name}'")
+            raise TMockPatchingError(f"Module '{module.__name__}' has no attribute '{name}'")
         return ModuleFunctionPatchContext(module, name)
 
 
@@ -165,7 +166,7 @@ class ClassPatcher:
     def __getattr__(self, name: str) -> StaticMethodPatchContext | ClassMethodPatchContext | InstanceMethodPatchContext:
         cls = object.__getattribute__(self, "_cls")
         if not hasattr(cls, name):
-            raise AttributeError(f"Class '{cls.__name__}' has no attribute '{name}'")
+            raise TMockPatchingError(f"Class '{cls.__name__}' has no attribute '{name}'")
 
         attr = inspect.getattr_static(cls, name)
 
@@ -176,7 +177,7 @@ class ClassPatcher:
         elif callable(attr):
             return InstanceMethodPatchContext(cls, name)
         else:
-            raise TypeError(f"'{name}' is not a method.")
+            raise TMockPatchingError(f"'{name}' is not a method on '{cls.__name__}'.")
 
 
 def patch(target: ModuleType | type) -> ModulePatcher | ClassPatcher:
@@ -207,4 +208,4 @@ def patch(target: ModuleType | type) -> ModulePatcher | ClassPatcher:
     elif isinstance(target, type):
         return ClassPatcher(target)
     else:
-        raise TypeError(f"patch() requires a module or class, got {type(target).__name__}")
+        raise TMockPatchingError(f"patch() requires a module or class, got {type(target).__name__}")

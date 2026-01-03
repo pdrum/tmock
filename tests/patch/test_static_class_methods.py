@@ -4,7 +4,7 @@ import pytest
 
 from tests.patch.sample_class import Calculator
 from tmock import CallArguments, any, given, verify
-from tmock.exceptions import TMockStubbingError, TMockUnexpectedCallError
+from tmock.exceptions import TMockPatchingError, TMockStubbingError, TMockUnexpectedCallError
 from tmock.patch import patch
 
 
@@ -205,13 +205,13 @@ class TestClassMethodPatchingAsync:
 
 class TestPatchErrors:
     def test_patch_nonexistent_method_raises(self):
-        with pytest.raises(AttributeError) as exc_info:
+        with pytest.raises(TMockPatchingError) as exc_info:
             patch(Calculator).nonexistent
 
         assert "has no attribute 'nonexistent'" in str(exc_info.value)
 
     def test_patch_non_module_or_class_raises(self):
-        with pytest.raises(TypeError) as exc_info:
+        with pytest.raises(TMockPatchingError) as exc_info:
             patch("not a module or class")  # type: ignore
 
         assert "requires a module or class" in str(exc_info.value)

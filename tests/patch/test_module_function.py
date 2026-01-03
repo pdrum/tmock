@@ -2,7 +2,7 @@ import pytest
 
 from tests.patch import sample_module
 from tmock import CallArguments, any, given, verify
-from tmock.exceptions import TMockUnexpectedCallError
+from tmock.exceptions import TMockPatchingError, TMockStubbingError, TMockUnexpectedCallError
 from tmock.patch import patch
 
 
@@ -48,7 +48,7 @@ class TestModuleFunctionPatching:
         assert sample_module.no_args() == "original"
 
     def test_patch_nonexistent_function_raises(self):
-        with pytest.raises(AttributeError) as exc_info:
+        with pytest.raises(TMockPatchingError) as exc_info:
             patch(sample_module).nonexistent
 
         assert "has no attribute 'nonexistent'" in str(exc_info.value)
@@ -205,8 +205,6 @@ class TestModuleFunctionPatchingAsync:
 
 class TestModuleFunctionPatchingTypeValidation:
     def test_stub_validates_argument_types(self):
-        from tmock.exceptions import TMockStubbingError
-
         with patch(sample_module).add as mock_add:
             with pytest.raises(TMockStubbingError) as exc_info:
                 given().call(mock_add("not an int", 2)).returns(0)
@@ -214,8 +212,6 @@ class TestModuleFunctionPatchingTypeValidation:
             assert "Invalid type for argument 'a'" in str(exc_info.value)
 
     def test_stub_validates_return_type(self):
-        from tmock.exceptions import TMockStubbingError
-
         with patch(sample_module).add as mock_add:
             with pytest.raises(TMockStubbingError) as exc_info:
                 given().call(mock_add(1, 2)).returns("not an int")
@@ -223,8 +219,6 @@ class TestModuleFunctionPatchingTypeValidation:
             assert "Invalid return type" in str(exc_info.value)
 
     def test_stub_validates_all_arguments(self):
-        from tmock.exceptions import TMockStubbingError
-
         with patch(sample_module).greet as mock_greet:
             with pytest.raises(TMockStubbingError) as exc_info:
                 given().call(mock_greet(123)).returns("hello")
@@ -238,8 +232,6 @@ class TestModuleFunctionPatchingTypeValidation:
             assert sample_module.add(1, 2) == 999
 
     def test_wrong_number_of_arguments(self):
-        from tmock.exceptions import TMockStubbingError
-
         with patch(sample_module).add as mock_add:
             with pytest.raises(TMockStubbingError) as exc_info:
                 given().call(mock_add(1)).returns(0)
