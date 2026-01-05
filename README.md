@@ -61,6 +61,72 @@ pip install tmock
 
 ```
 
+## Quick Demo
+
+Here's a realistic example: testing a `NotificationService` that depends on an `EmailClient` and uses a module-level config.
+
+**The production code:**
+
+```python
+# notification_service.py
+from myapp.config import MAX_BATCH_SIZE
+from myapp.email import EmailClient
+
+class NotificationService:
+    def __init__(self, email_client: EmailClient):
+        self.client = email_client
+
+    def notify_users(self, user_ids: list[int], message: str) -> int:
+        """Send notifications in batches. Returns count of successful sends."""
+        sent = 0
+        for i in range(0, len(user_ids), MAX_BATCH_SIZE):
+            batch = user_ids[i:i + MAX_BATCH_SIZE]
+            for user_id in batch:
+                if self.client.send(user_id, message):
+                    sent += 1
+        return sent
+```
+
+**Testing with mocks** — Use `tmock()` when you control the dependency and pass it in (dependency injection):
+
+```python
+from tmock import tmock, given, verify, any
+
+def test_notify_users_returns_success_count():
+    # Create a type-safe mock of the dependency
+    client = tmock(EmailClient)
+
+    # Stub the send method - first call succeeds, second fails
+    given().call(client.send(1, "Hello")).returns(True)
+    given().call(client.send(2, "Hello")).returns(False)
+
+    # Inject the mock and test
+    service = NotificationService(client)
+    result = service.notify_users([1, 2], "Hello")
+
+    assert result == 1  # Only one succeeded
+    verify().call(client.send(any(int), "Hello")).times(2)
+```
+
+**Testing with patches** — Use `tpatch` when you need to replace something you don't control, like a module variable or a function called internally:
+
+```python
+from tmock import tpatch
+
+def test_notify_users_respects_batch_size():
+    client = tmock(EmailClient)
+    given().call(client.send(any(int), any(str))).returns(True)
+
+    # Patch the module variable to force smaller batches
+    with tpatch.module_var("path.to.notification_service.MAX_BATCH_SIZE", 2):
+        service = NotificationService(client)
+        service.notify_users([1, 2, 3, 4, 5], "Hi")
+
+        # Verify all 5 emails were sent despite small batch size
+        verify().call(client.send(any(int), "Hi")).times(5)
+```
+
+
 ## Usage Guide
 
 ### Creating a Mock
