@@ -90,3 +90,90 @@ CallRecord (ABC)
 - No central "bag of state" - prefer OO design with clear responsibilities
 - DSL should provide full IDE autocomplete where possible
 - Type checking at stub time, not call time
+
+## Patching (tpatch)
+
+The `tpatch` class provides stdlib-backed patching with typed interceptors. It wraps `unittest.mock.patch` internally but returns tmock interceptors for use with the `given()`/`verify()` DSL.
+
+### API
+
+```python
+from tmock import tpatch, given, verify
+
+# Functions (supports from...import)
+with tpatch.function("myapp.service.get_user") as mock:
+    given().call(mock(1)).returns(User(id=1))
+
+# Instance methods
+with tpatch.method(MyClass, "save") as mock:
+    given().call(mock(any(User))).returns(True)
+
+# Static methods
+with tpatch.staticmethod(MyClass, "create") as mock:
+    given().call(mock("data")).returns(instance)
+
+# Class methods
+with tpatch.classmethod(MyClass, "from_env") as mock:
+    given().call(mock()).returns(Config())
+
+# Instance fields (property, dataclass, pydantic, annotation)
+with tpatch.field(Person, "name") as field:
+    given().get(field).returns("Alice")
+    given().set(field, "Bob").returns(None)
+
+# Class variables
+with tpatch.class_var(MyClass, "DEFAULT_TIMEOUT") as field:
+    given().get(field).returns(30)
+
+# Module variables
+with tpatch.module_var(config_module, "DEBUG") as field:
+    given().get(field).returns(True)
+```
+
+### Design
+
+Each method is explicit about what it patches. Validation ensures the user called the correct method:
+
+| Method | Patches | Validates | Type info from |
+|--------|---------|-----------|----------------|
+| `tpatch.function(path)` | Module functions, from...import | `callable(attr)` | `inspect.signature` |
+| `tpatch.method(cls, name)` | Instance methods | has `self` param | `inspect.signature` |
+| `tpatch.staticmethod(cls, name)` | Static methods | `isinstance(attr, staticmethod)` | `inspect.signature` |
+| `tpatch.classmethod(cls, name)` | Class methods | `isinstance(attr, classmethod)` | `inspect.signature` |
+| `tpatch.field(cls, name)` | Instance fields | in `FieldDiscovery` or `property` | `FieldDiscovery` |
+| `tpatch.class_var(cls, name)` | Class variables | not callable, not descriptor | `ClassVar` annotation or `Any` |
+| `tpatch.module_var(module, name)` | Module variables | not callable | Module annotation or `Any` |
+
+### Implementation Notes
+
+- All patching delegated to `unittest.mock.patch` / `unittest.mock.patch.object`
+- tmock builds the appropriate interceptor and passes it as the `new` argument
+- For methods with `self`/`cls`, a wrapper strips the first argument
+- For fields/variables, a `_FieldDescriptor` is installed to intercept get/set
+- Type hints extracted from:
+  - `FieldDiscovery` for instance fields (property, dataclass, pydantic, annotation)
+  - `typing.get_type_hints()` + `ClassVar` unwrapping for class variables
+  - `typing.get_type_hints()` for module variables
+  - Falls back to `Any` if no type info available
+
+### File Structure
+
+```
+src/tmock/
+├── tpatch.py            # tpatch class with function/method/staticmethod/classmethod/field/class_var/module_var
+└── ...
+```
+
+### Error Messages
+
+When the wrong method is used, helpful errors guide to the correct one:
+
+```python
+with tpatch.method(MyClass, "static_func"):
+    ...
+# TMockPatchingError: 'static_func' is a staticmethod. Use tpatch.staticmethod().
+
+with tpatch.field(MyClass, "CLASS_CONST"):
+    ...
+# TMockPatchingError: 'CLASS_CONST' is not a field on 'MyClass'. Use tpatch.class_var().
+```

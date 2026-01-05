@@ -2,7 +2,7 @@ import dataclasses
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from inspect import Parameter, Signature, iscoroutinefunction, signature
-from typing import Any, ClassVar, Type, get_origin, get_type_hints
+from typing import Any, Callable, ClassVar, Type, get_origin, get_type_hints
 
 
 class FieldSource(Enum):
@@ -257,7 +257,38 @@ def _get_raw_attribute(cls: Type[Any], name: str) -> Any:
 def _extract_instance_method_signature(method: Any) -> Signature:
     """Extracts signature from an instance method, excluding 'self' parameter."""
     sig = signature(method)
+    sig = resolve_forward_refs(method, sig)
     params = list(sig.parameters.values())
     if params:
         return sig.replace(parameters=params[1:])
     return sig
+
+
+def resolve_forward_refs(func: Callable[..., Any], sig: Signature) -> Signature:
+    """Resolve string forward references in a signature using get_type_hints.
+
+    This allows typeguard to properly validate types even when annotations
+    are written as strings (forward references like -> "ClassName").
+
+    Args:
+        func: The function/method to resolve hints for.
+        sig: The original signature from inspect.signature().
+
+    Returns:
+        A new Signature with forward references resolved to actual types.
+        If resolution fails, returns the original signature unchanged.
+    """
+    try:
+        hints = get_type_hints(func)
+    except Exception:
+        return sig
+
+    new_params = []
+    for param in sig.parameters.values():
+        if param.name in hints:
+            new_params.append(param.replace(annotation=hints[param.name]))
+        else:
+            new_params.append(param)
+
+    return_annotation = hints.get("return", sig.return_annotation)
+    return sig.replace(parameters=new_params, return_annotation=return_annotation)
