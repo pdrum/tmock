@@ -1,8 +1,10 @@
+"""Tests for tpatch.class_var()."""
+
 import re
 
 import pytest
 
-from tests.tpatch.helpers import Calculator, IdGenerator, Person, Settings
+from tests.tpatch.class_var.fixtures import ConfigWithClassVars, Settings
 from tmock import given, tpatch, verify
 from tmock.exceptions import TMockPatchingError
 
@@ -48,13 +50,10 @@ class TestBasicClassVarPatching:
         with tpatch.class_var(Settings, "DEBUG") as field:
             given().get(field).returns(True)
 
-            # Write should be silently discarded
             Settings.DEBUG = not original
 
-            # Should still return stubbed value
             assert Settings.DEBUG is True
 
-        # Original should be restored
         assert Settings.DEBUG == original
 
 
@@ -85,8 +84,6 @@ class TestClassVarVerification:
         with tpatch.class_var(Settings, "DEBUG") as field:
             given().get(field).returns(True)
 
-            # Don't access DEBUG
-
             verify().get(field).never()
 
 
@@ -98,7 +95,6 @@ class TestClassVarTypeValidation:
 
     def test_untyped_class_var_accepts_any(self) -> None:
         with tpatch.class_var(Settings, "UNTYPED_VAR") as field:
-            # Should not raise - accepts any type
             given().get(field).returns(123)
             given().get(field).returns("string")
             given().get(field).returns([1, 2, 3])
@@ -121,10 +117,8 @@ class TestClassVarAccessViaInstance:
             given().get(field).returns(True)
 
             settings = Settings()
-            # Write via instance should be silently discarded
             settings.DEBUG = not original  # type: ignore[misc]
 
-            # Should still return stubbed value
             assert settings.DEBUG is True
 
         assert Settings.DEBUG == original
@@ -137,23 +131,29 @@ class TestErrorHandling:
                 pass
 
     def test_raises_on_staticmethod(self) -> None:
+        from tests.tpatch.static_method.fixtures import IdGenerator
+
         with pytest.raises(TMockPatchingError, match="staticmethod"):
             with tpatch.class_var(IdGenerator, "generate"):
                 pass
 
     def test_raises_on_classmethod(self) -> None:
-        from tests.tpatch.helpers import Config
+        from tests.tpatch.class_method.fixtures import Config
 
         with pytest.raises(TMockPatchingError, match="classmethod"):
             with tpatch.class_var(Config, "from_env"):
                 pass
 
     def test_raises_on_instance_method(self) -> None:
+        from tests.tpatch.method.fixtures import Calculator
+
         with pytest.raises(TMockPatchingError, match="callable"):
             with tpatch.class_var(Calculator, "add"):
                 pass
 
     def test_raises_on_instance_field(self) -> None:
+        from tests.tpatch.field.fixtures import Person
+
         with pytest.raises(TMockPatchingError, match=re.escape("Class 'Person' has no attribute 'name'.")):
             with tpatch.class_var(Person, "name"):
                 pass
@@ -191,3 +191,20 @@ class TestMultipleStubs:
             result = Settings.DEBUG
 
             assert result is True
+
+
+class TestDifferentClasses:
+    def test_patches_class_var_on_different_class(self) -> None:
+        with tpatch.class_var(ConfigWithClassVars, "TIMEOUT") as field:
+            given().get(field).returns(120)
+
+            assert ConfigWithClassVars.TIMEOUT == 120
+
+    def test_patches_multiple_classes(self) -> None:
+        with tpatch.class_var(Settings, "DEBUG") as debug_field:
+            with tpatch.class_var(ConfigWithClassVars, "ENABLED") as enabled_field:
+                given().get(debug_field).returns(True)
+                given().get(enabled_field).returns(False)
+
+                assert Settings.DEBUG is True
+                assert ConfigWithClassVars.ENABLED is False

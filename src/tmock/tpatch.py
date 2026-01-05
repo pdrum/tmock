@@ -15,6 +15,8 @@ from types import ModuleType
 from typing import Any, ClassVar, Generator
 from unittest import mock
 
+from typeguard import TypeCheckError, check_type
+
 from tmock.class_schema import FieldDiscovery, resolve_forward_refs
 from tmock.exceptions import TMockPatchingError
 from tmock.field_ref import FieldRef
@@ -382,34 +384,40 @@ class tpatch:
 
     @staticmethod
     @contextmanager
-    def module_var(module: ModuleType, name: str) -> Generator[FieldRef, None, None]:
-        """Patch a module-level variable.
+    def module_var(path: str, value: Any) -> Generator[None, None, None]:
+        """Temporarily replace a module-level variable with a value.
 
-        Note: Due to Python limitations, module variables cannot be intercepted
-        like class attributes. This uses a callback-based approach where stubbed
-        values are applied directly to the module attribute.
-
-        Setter stubbing/verification is not supported.
+        Uses the same path-based approach as unittest.mock.patch, which allows
+        patching where the variable is used (after from...import) not just
+        where it's defined.
 
         Args:
-            module: The module containing the variable.
-            name: The variable name.
-
-        Yields:
-            FieldRef for use with given().get() and verify().get().
+            path: Dotted path to the variable (e.g., "myapp.config.DEBUG").
+            value: The value to set.
 
         Example:
-            import myapp.config as config
-            with tpatch.module_var(config, "DEBUG") as field:
-                given().get(field).returns(True)
+            # Patch where defined:
+            with tpatch.module_var("myapp.config.DEBUG", True):
+                import myapp.config
+                assert myapp.config.DEBUG is True
+
+            # Patch where used (after from...import):
+            # If app.py does: from config import DEBUG
+            with tpatch.module_var("myapp.app.DEBUG", True):
+                import myapp.app
+                assert myapp.app.DEBUG is True
         """
-        if not isinstance(module, ModuleType):
-            raise TMockPatchingError(
-                f"Expected a module, got {type(module).__name__}. Use tpatch.class_var() for class variables."
-            )
+        if "." not in path:
+            raise TMockPatchingError(f"Invalid path '{path}'. Expected format: 'module.attribute'.")
+
+        module_path, name = path.rsplit(".", 1)
+        try:
+            module = importlib.import_module(module_path)
+        except ImportError as e:
+            raise TMockPatchingError(f"Cannot import module '{module_path}': {e}")
 
         if not hasattr(module, name):
-            raise TMockPatchingError(f"Module '{module.__name__}' has no attribute '{name}'.")
+            raise TMockPatchingError(f"Module '{module_path}' has no attribute '{name}'.")
 
         original = getattr(module, name)
 
@@ -417,34 +425,20 @@ class tpatch:
         if callable(original):
             raise TMockPatchingError(f"'{name}' is callable. Use tpatch.function().")
 
-        # Extract type from annotation
+        # Type check the value
         value_type = _get_module_var_type(module, name)
+        if value_type is not Any:
+            try:
+                check_type(value, value_type)
+            except TypeCheckError as e:
+                from tmock.exceptions import TMockStubbingError
 
-        # Create a patcher that updates the module attribute when stubs are added
-        patcher = _ModuleVarPatcher(module, name, original)
-
-        getter = _ModuleVarGetterInterceptor(
-            name=name,
-            signature=Signature(return_annotation=value_type),
-            class_name=module.__name__,
-            patcher=patcher,
-        )
-        setter = _UnsupportedSetter(
-            name=name,
-            reason="Python's descriptor protocol doesn't work on modules.",
-        )
-
-        field_ref = FieldRef(
-            mock=None,
-            name=name,
-            getter_interceptor=getter,
-            setter_interceptor=setter,  # type: ignore[arg-type]
-        )
+                raise TMockStubbingError(f"Type mismatch for module variable '{name}': {e}") from None
 
         try:
-            yield field_ref
+            setattr(module, name, value)
+            yield
         finally:
-            # Restore original value
             setattr(module, name, original)
 
 
@@ -546,54 +540,6 @@ def _get_module_var_type(module: ModuleType, name: str) -> Any:
         return annotations[name]
 
     return Any
-
-
-class _ModuleVarPatcher:
-    """Manages patching a module variable by directly updating the attribute."""
-
-    def __init__(self, module: ModuleType, name: str, original: Any):
-        self._module = module
-        self._name = name
-        self._original = original
-
-    def update_value(self, value: Any) -> None:
-        """Update the module attribute with the stubbed value."""
-        setattr(self._module, self._name, value)
-
-    def record_access(self) -> Any:
-        """Record that the module attribute was accessed and return current value."""
-        return getattr(self._module, self._name)
-
-
-class _ModuleVarGetterInterceptor(GetterInterceptor):
-    """Special getter interceptor for module variables that updates the module directly."""
-
-    def __init__(
-        self,
-        name: str,
-        signature: Signature,
-        class_name: str,
-        patcher: _ModuleVarPatcher,
-    ):
-        super().__init__(name, signature, class_name)
-        self._patcher = patcher
-
-    def add_stub(self, stub: Any) -> None:
-        """Add a stub and update the module attribute with the stubbed value."""
-        super().add_stub(stub)
-        # When a stub is added, update the module attribute with the stubbed value
-        # This is needed because descriptors don't work on modules
-        from tmock.interceptor import ReturnsStub
-
-        if isinstance(stub, ReturnsStub):
-            self._patcher.update_value(stub.value)
-
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        """Called when verifying - record the access."""
-        # For verification, we need to track calls
-        # But we can't intercept actual module access, so this is only called
-        # from the DSL (given/verify), not from actual module.VAR access
-        return super().__call__(*args, **kwargs)
 
 
 class _UnsupportedSetter:

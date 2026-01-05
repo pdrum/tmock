@@ -1,9 +1,10 @@
+"""Tests for tpatch.static_method()."""
+
 import pytest
 
-from tests.tpatch.helpers import Calculator, Config, IdGenerator
-from tmock import given, verify
+from tests.tpatch.static_method.fixtures import IdGenerator
+from tmock import given, tpatch, verify
 from tmock.exceptions import TMockPatchingError
-from tmock.tpatch import tpatch
 
 
 class TestBasicStaticMethodPatching:
@@ -115,17 +116,21 @@ class TestErrorHandling:
                 pass
 
     def test_raises_on_instance_method(self) -> None:
+        from tests.tpatch.method.fixtures import Calculator
+
         with pytest.raises(TMockPatchingError, match="not a staticmethod"):
             with tpatch.static_method(Calculator, "add"):
                 pass
 
     def test_raises_on_classmethod(self) -> None:
+        from tests.tpatch.class_method.fixtures import Config
+
         with pytest.raises(TMockPatchingError, match="classmethod.*not a staticmethod"):
             with tpatch.static_method(Config, "from_env"):
                 pass
 
     def test_raises_on_non_callable(self) -> None:
-        from tests.tpatch.helpers import Settings
+        from tests.tpatch.class_var.fixtures import Settings
 
         with pytest.raises(TMockPatchingError, match="not a staticmethod"):
             with tpatch.static_method(Settings, "DEBUG"):

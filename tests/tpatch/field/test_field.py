@@ -1,14 +1,14 @@
+"""Tests for tpatch.field()."""
+
 import pytest
 
-from tests.tpatch.helpers import (
+from tests.tpatch.field.fixtures import (
     AnnotatedFields,
-    Calculator,
     FrozenPydanticUser,
     ImmutablePerson,
     Person,
     PropertyPerson,
     PydanticUser,
-    Settings,
 )
 from tmock import given, tpatch, verify
 from tmock.exceptions import TMockPatchingError
@@ -40,7 +40,6 @@ class TestDataclassFieldPatching:
             person = Person.__new__(Person)
             assert person.name == "Mocked"
 
-        # Original behavior restored
         person = Person(name="Real", age=30)
         assert person.name == "Real"
 
@@ -50,17 +49,13 @@ class TestDataclassFieldPatching:
 
             person = ImmutablePerson.__new__(ImmutablePerson)
 
-            # Getter works
             assert person.name == "Mocked"
 
-            # Setter should raise (FrozenInstanceError from dataclass or TMockPatchingError)
             with pytest.raises(Exception):
                 person.name = "New"  # type: ignore[misc]
 
 
 class TestPropertyFieldPatching:
-    """Tests for property field patching."""
-
     def test_patches_property_getter(self) -> None:
         with tpatch.field(PropertyPerson, "name") as field:
             given().get(field).returns("Mocked Property")
@@ -99,8 +94,6 @@ class TestPropertyFieldPatching:
 
 
 class TestAnnotatedFieldPatching:
-    """Tests for annotated field patching."""
-
     def test_patches_annotated_field_getter(self) -> None:
         with tpatch.field(AnnotatedFields, "name") as field:
             given().get(field).returns("Annotated Mocked")
@@ -122,8 +115,6 @@ class TestAnnotatedFieldPatching:
 
 
 class TestPydanticFieldPatching:
-    """Tests for Pydantic model field patching."""
-
     def test_patches_pydantic_getter(self) -> None:
         with tpatch.field(PydanticUser, "name") as field:
             given().get(field).returns("Pydantic Mocked")
@@ -134,15 +125,12 @@ class TestPydanticFieldPatching:
             assert result == "Pydantic Mocked"
 
     def test_patches_pydantic_setter_raises_without_init(self) -> None:
-        # Note: Pydantic's __setattr__ requires proper initialization.
-        # Using __new__ bypasses Pydantic's __init__, so setters raise errors.
         with tpatch.field(PydanticUser, "email") as field:
             given().get(field).returns("old@example.com")
             given().set(field, "new@example.com").returns(None)
 
             user = PydanticUser.__new__(PydanticUser)
 
-            # Raises because Pydantic model isn't properly initialized
             with pytest.raises(AttributeError):
                 user.email = "new@example.com"
 
@@ -153,14 +141,11 @@ class TestPydanticFieldPatching:
             user = FrozenPydanticUser.__new__(FrozenPydanticUser)
             assert user.name == "Frozen Mocked"
 
-            # Setter should raise (ValidationError from Pydantic or TMockPatchingError)
             with pytest.raises(Exception):
                 user.name = "Attempt"
 
 
 class TestFieldVerification:
-    """Tests for field access verification."""
-
     def test_verifies_getter_called(self) -> None:
         with tpatch.field(Person, "name") as field:
             given().get(field).returns("Name")
@@ -195,14 +180,10 @@ class TestFieldVerification:
         with tpatch.field(Person, "name") as field:
             given().get(field).returns("Name")
 
-            # Don't access the field
-
             verify().get(field).never()
 
 
 class TestTypeValidation:
-    """Tests for type validation in field patching."""
-
     def test_validates_getter_return_type(self) -> None:
         with tpatch.field(Person, "name") as field:
             with pytest.raises(Exception):  # TMockStubbingError
@@ -216,32 +197,34 @@ class TestTypeValidation:
 
 
 class TestErrorHandling:
-    """Tests for error handling."""
-
     def test_raises_on_nonexistent_field(self) -> None:
         with pytest.raises(TMockPatchingError, match="not a field"):
             with tpatch.field(Person, "nonexistent"):
                 pass
 
     def test_raises_on_method(self) -> None:
+        from tests.tpatch.method.fixtures import Calculator
+
         with pytest.raises(TMockPatchingError, match="not a field"):
             with tpatch.field(Calculator, "add"):
                 pass
 
     def test_raises_on_class_variable(self) -> None:
+        from tests.tpatch.class_var.fixtures import Settings
+
         with pytest.raises(TMockPatchingError, match="class_var"):
             with tpatch.field(Settings, "DEBUG"):
                 pass
 
     def test_suggests_class_var_for_class_variables(self) -> None:
+        from tests.tpatch.class_var.fixtures import Settings
+
         with pytest.raises(TMockPatchingError, match="tpatch.class_var"):
             with tpatch.field(Settings, "MAX_RETRIES"):
                 pass
 
 
 class TestMultipleFields:
-    """Tests for patching multiple fields."""
-
     def test_patches_multiple_fields_nested(self) -> None:
         with tpatch.field(Person, "name") as name_field:
             with tpatch.field(Person, "age") as age_field:
@@ -264,8 +247,6 @@ class TestMultipleFields:
 
 
 class TestFieldAffectsAllInstances:
-    """Tests verifying patches affect all instances."""
-
     def test_patch_affects_existing_instances(self) -> None:
         person1 = PropertyPerson()
         person2 = PropertyPerson()

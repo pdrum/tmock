@@ -1,6 +1,8 @@
+"""Tests for tpatch.class_method()."""
+
 import pytest
 
-from tests.tpatch.helpers import Calculator, Config, Factory, IdGenerator
+from tests.tpatch.class_method.fixtures import Config, Factory
 from tmock import given, tpatch, verify
 from tmock.exceptions import TMockPatchingError
 
@@ -22,7 +24,6 @@ class TestBasicClassMethodPatching:
             result = Config.from_env()
             assert result is mock_config
 
-        # Original restored - creates new instance
         result = Config.from_env()
         assert isinstance(result, Config)
 
@@ -124,17 +125,21 @@ class TestErrorHandling:
                 pass
 
     def test_raises_on_instance_method(self) -> None:
+        from tests.tpatch.method.fixtures import Calculator
+
         with pytest.raises(TMockPatchingError, match="not a classmethod"):
             with tpatch.class_method(Calculator, "add"):
                 pass
 
     def test_raises_on_staticmethod(self) -> None:
+        from tests.tpatch.static_method.fixtures import IdGenerator
+
         with pytest.raises(TMockPatchingError, match="staticmethod.*not a classmethod"):
             with tpatch.class_method(IdGenerator, "generate"):
                 pass
 
     def test_raises_on_non_callable(self) -> None:
-        from tests.tpatch.helpers import Settings
+        from tests.tpatch.class_var.fixtures import Settings
 
         with pytest.raises(TMockPatchingError, match="not a classmethod"):
             with tpatch.class_method(Settings, "DEBUG"):
@@ -150,7 +155,6 @@ class TestSubclasses:
             mock_config = Config()
             given().call(mock()).returns(mock_config)
 
-            # Called on parent class
             result = Config.from_env()
             assert result is mock_config
 

@@ -1,13 +1,13 @@
+"""Tests for tpatch.method()."""
+
 import pytest
 
-from tests.tpatch.helpers import Calculator, IdGenerator, ServiceWithDeps
+from tests.tpatch.method.fixtures import Calculator, ServiceWithDeps
 from tmock import given, tpatch, verify
 from tmock.exceptions import TMockPatchingError
 
 
 class TestBasicMethodPatching:
-    """Basic instance method patching tests."""
-
     def test_patches_instance_method(self) -> None:
         with tpatch.method(Calculator, "add") as mock:
             given().call(mock(1, 2)).returns(42)
@@ -22,7 +22,6 @@ class TestBasicMethodPatching:
             given().call(mock(1, 2)).returns(42)
             assert Calculator().add(1, 2) == 42
 
-        # Original restored
         assert Calculator().add(1, 2) == 3
 
     def test_patch_affects_all_instances(self) -> None:
@@ -44,8 +43,6 @@ class TestBasicMethodPatching:
 
 
 class TestMethodVerification:
-    """Tests for method call verification."""
-
     def test_verifies_method_was_called(self) -> None:
         with tpatch.method(Calculator, "add") as mock:
             given().call(mock(1, 2)).returns(3)
@@ -68,14 +65,10 @@ class TestMethodVerification:
         with tpatch.method(Calculator, "add") as mock:
             given().call(mock(1, 2)).returns(3)
 
-            # Don't call the method
-
             verify().call(mock(1, 2)).never()
 
 
 class TestMethodWithDefaults:
-    """Tests for methods with default arguments."""
-
     def test_patches_method_with_defaults(self) -> None:
         with tpatch.method(Calculator, "method_with_defaults") as mock:
             given().call(mock(10)).returns("mocked-default")
@@ -94,8 +87,6 @@ class TestMethodWithDefaults:
 
 
 class TestAsyncMethodPatching:
-    """Tests for async method patching."""
-
     @pytest.mark.asyncio
     async def test_patches_async_method(self) -> None:
         with tpatch.method(Calculator, "async_compute") as mock:
@@ -124,8 +115,6 @@ class TestAsyncMethodPatching:
 
 
 class TestTypeValidation:
-    """Tests for type validation in method patching."""
-
     def test_validates_argument_types(self) -> None:
         with tpatch.method(Calculator, "add") as mock:
             with pytest.raises(Exception):  # TMockStubbingError
@@ -138,34 +127,34 @@ class TestTypeValidation:
 
 
 class TestErrorHandling:
-    """Tests for error handling."""
-
     def test_raises_on_nonexistent_method(self) -> None:
         with pytest.raises(TMockPatchingError, match="has no attribute"):
             with tpatch.method(Calculator, "nonexistent"):
                 pass
 
     def test_raises_on_staticmethod(self) -> None:
+        from tests.tpatch.static_method.fixtures import IdGenerator
+
         with pytest.raises(TMockPatchingError, match="staticmethod"):
             with tpatch.method(IdGenerator, "generate"):
                 pass
 
     def test_raises_on_classmethod(self) -> None:
-        from tests.tpatch.helpers import Config
+        from tests.tpatch.class_method.fixtures import Config
 
         with pytest.raises(TMockPatchingError, match="classmethod"):
             with tpatch.method(Config, "from_env"):
                 pass
 
     def test_raises_on_property(self) -> None:
-        from tests.tpatch.helpers import PropertyPerson
+        from tests.tpatch.field.fixtures import PropertyPerson
 
         with pytest.raises(TMockPatchingError, match="property"):
             with tpatch.method(PropertyPerson, "name"):
                 pass
 
     def test_raises_on_non_callable(self) -> None:
-        from tests.tpatch.helpers import Settings
+        from tests.tpatch.class_var.fixtures import Settings
 
         with pytest.raises(TMockPatchingError, match="not callable"):
             with tpatch.method(Settings, "DEBUG"):
@@ -173,8 +162,6 @@ class TestErrorHandling:
 
 
 class TestMultipleMethods:
-    """Tests for patching multiple methods."""
-
     def test_patches_multiple_methods_nested(self) -> None:
         with tpatch.method(Calculator, "add") as mock_add:
             with tpatch.method(Calculator, "multiply") as mock_mul:
@@ -197,8 +184,6 @@ class TestMultipleMethods:
 
 
 class TestRealWorldScenarios:
-    """Tests simulating real-world usage."""
-
     def test_mock_external_dependency(self) -> None:
         with tpatch.method(ServiceWithDeps, "fetch_user") as mock:
             given().call(mock(123)).returns({"id": 123, "name": "Mocked User"})
@@ -215,8 +200,5 @@ class TestRealWorldScenarios:
 
             service = ServiceWithDeps()
 
-            # Patched method
             assert service.fetch_user(1) == {"id": 1, "name": "Mock"}
-
-            # Unpatched method still works
             assert service.process("data") == "processed: data"
