@@ -71,7 +71,7 @@ class GivenBuilder:
         interceptor, record = dsl.begin_terminal()
         return StubbingBuilder(interceptor, record)
 
-    def get(self, field_ref: Any) -> StubbingBuilder[R]:
+    def get(self, field_ref: Any) -> StubbingBuilder[Any]:
         """Capture a field getter pattern and return a stubbing builder.
 
         Usage:
