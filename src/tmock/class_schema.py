@@ -208,7 +208,7 @@ def introspect_class(cls: Type[Any], extra_fields: list[str] | None = None) -> C
 
     # Discover methods and class/static members
     for name in dir(cls):
-        if name.startswith("_") or name in schema.fields:
+        if (name.startswith("_") and name != "__call__") or name in schema.fields:
             continue
 
         raw_attr = _get_raw_attribute(cls, name)

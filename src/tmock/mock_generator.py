@@ -87,6 +87,13 @@ def tmock(cls: Type[T], extra_fields: list[str] | None = None) -> T:
             raise TMockUnexpectedCallError(f"{cls.__name__}.{name} is read-only")
         setter(value)
 
+    if "__call__" in schema.method_signatures:
+
+        def __call__(self: TMock, *args: Any, **kwargs: Any) -> Any:
+            return _get_method_interceptor(self, "__call__")(*args, **kwargs)
+
+        setattr(TMock, "__call__", __call__)
+
     instance = object.__new__(TMock)
     TMock.__init__(instance)
     return instance
