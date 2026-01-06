@@ -210,6 +210,16 @@ ALLOWED_MAGIC_METHODS = {
     "__next__",
     "__aiter__",
     "__anext__",
+    "__len__",
+    "__contains__",
+    "__bool__",
+    "__hash__",
+    "__eq__",
+    "__ne__",
+    "__lt__",
+    "__le__",
+    "__gt__",
+    "__ge__",
 }
 
 
