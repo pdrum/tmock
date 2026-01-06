@@ -203,6 +203,9 @@ ALLOWED_MAGIC_METHODS = {
     "__exit__",
     "__aenter__",
     "__aexit__",
+    "__getitem__",
+    "__setitem__",
+    "__delitem__",
 }
 
 
