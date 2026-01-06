@@ -58,6 +58,26 @@ def pattern_matches_call(pattern: CallRecord, actual: CallRecord) -> bool:
         if isinstance(pattern_arg.value, Matcher):
             if not pattern_arg.value.matches(actual_arg.value):
                 return False
-        elif pattern_arg.value != actual_arg.value:
+        elif not _safe_equals(pattern_arg.value, actual_arg.value):
             return False
     return True
+
+
+def _safe_equals(a: Any, b: Any) -> bool:
+    """Compare two values safely, avoiding recursion with TMock objects."""
+    # If both are the same object, they are equal
+    if a is b:
+        return True
+
+    # If both are TMocks, use identity to avoid triggering their __eq__ interceptors
+    # which leads to infinite recursion during pattern matching.
+    from tmock.mock_generator import is_tmock
+
+    if is_tmock(a) and is_tmock(b):
+        return a is b
+
+    # Standard comparison for everything else
+    try:
+        return bool(a == b)
+    except Exception:
+        return False

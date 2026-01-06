@@ -242,6 +242,10 @@ def introspect_class(cls: Type[Any], extra_fields: list[str] | None = None) -> C
         if raw_attr is None:
             continue
 
+        # Skip magic methods that are just the default object implementation
+        if is_magic_allowed and _default_impl_is_inherited_from_object(cls, name):
+            continue
+
         if isinstance(raw_attr, (classmethod, staticmethod)):
             schema.class_or_static.add(name)
         elif callable(raw_attr) and not isinstance(raw_attr, property):
@@ -250,6 +254,14 @@ def introspect_class(cls: Type[Any], extra_fields: list[str] | None = None) -> C
                 schema.async_methods.add(name)
 
     return schema
+
+
+def _default_impl_is_inherited_from_object(cls: Type[Any], name: str) -> bool:
+    """Returns True if the attribute is resolved from the 'object' class directly."""
+    for base in cls.__mro__:
+        if name in base.__dict__:
+            return base is object
+    return False
 
 
 def _apply_extra_fields_if_not_discovered(extra_fields, schema):
