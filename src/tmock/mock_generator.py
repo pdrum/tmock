@@ -49,6 +49,10 @@ def tmock(cls: Type[T], extra_fields: list[str] | None = None) -> T:
                 return _set_field_value(self, name, value)
             raise TMockUnexpectedCallError(f"{cls.__name__} has no attribute '{name}'")
 
+        def __repr__(self) -> str:
+            # Fallback repr if not intercepted
+            return f"<TMock of {cls.__name__}>"
+
         @staticmethod
         def _create_magic_method_wrapper(method_name: str) -> Callable[..., Any]:
             def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:

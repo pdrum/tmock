@@ -220,6 +220,9 @@ ALLOWED_MAGIC_METHODS = {
     "__le__",
     "__gt__",
     "__ge__",
+    "__str__",
+    "__repr__",
+    "__format__",
 }
 
 
