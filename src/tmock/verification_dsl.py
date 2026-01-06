@@ -22,45 +22,54 @@ class VerificationBuilder:
     def _get_count(self) -> int:
         return self._interceptor.count_matching_calls(self._expected)
 
-    def called(self) -> None:
+    def _raise_error(self, default_message: str, custom_message: str | None) -> None:
+        message = default_message
+        if custom_message:
+            message = f"{custom_message}\nOriginal error: {default_message}"
+        raise TMockVerificationError(message)
+
+    def called(self, error_message: str | None = None) -> None:
         """Verify the method was called at least once."""
-        self.at_least(1)
+        self.at_least(1, error_message=error_message)
 
-    def once(self) -> None:
+    def once(self, error_message: str | None = None) -> None:
         """Verify the method was called exactly once."""
-        self.times(1)
+        self.times(1, error_message=error_message)
 
-    def times(self, n: int) -> None:
+    def times(self, n: int, error_message: str | None = None) -> None:
         """Verify the method was called exactly n times."""
         get_dsl_state().complete()
         count = self._get_count()
         if count != n:
-            raise TMockVerificationError(
-                f"Expected {self._expected.format_call()} to be called {n} time(s), but was called {count} time(s)"
+            self._raise_error(
+                f"Expected {self._expected.format_call()} to be called {n} time(s), but was called {count} time(s)",
+                error_message,
             )
 
-    def never(self) -> None:
+    def never(self, error_message: str | None = None) -> None:
         """Verify the method was never called."""
-        self.times(0)
+        self.times(0, error_message=error_message)
 
-    def at_least(self, n: int) -> None:
+    def at_least(self, n: int, error_message: str | None = None) -> None:
         """Verify the method was called at least n times."""
         get_dsl_state().complete()
         count = self._get_count()
         if count < n:
-            raise TMockVerificationError(
+            self._raise_error(
                 f"Expected {self._expected.format_call()} to be called at least {n} time(s), "
-                f"but was called {count} time(s)"
+                f"but was called {count} time(s)",
+                error_message,
             )
 
-    def at_most(self, n: int) -> None:
+    def at_most(self, n: int, error_message: str | None = None) -> None:
         """Verify the method was called at most n times."""
         get_dsl_state().complete()
         count = self._get_count()
         if count > n:
-            raise TMockVerificationError(
+            self._raise_error(
                 f"Expected {self._expected.format_call()} to be called at most {n} time(s), "
-                f"but was called {count} time(s)"
+                f"but was called {count} time(s)",
+                error_message,
             )
 
 
