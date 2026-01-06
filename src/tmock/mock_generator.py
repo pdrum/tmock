@@ -1,6 +1,6 @@
-from typing import Any, Type, TypeVar
+from typing import Any, Callable, Type, TypeVar
 
-from tmock.class_schema import FieldSchema, introspect_class
+from tmock.class_schema import ALLOWED_MAGIC_METHODS, FieldSchema, introspect_class
 from tmock.exceptions import TMockUnexpectedCallError
 from tmock.field_ref import FieldRef
 from tmock.interceptor import (
@@ -41,6 +41,12 @@ def tmock(cls: Type[T], extra_fields: list[str] | None = None) -> T:
             if name in schema.fields:
                 return _set_field_value(self, name, value)
             raise TMockUnexpectedCallError(f"{cls.__name__} has no attribute '{name}'")
+
+    def _create_magic_method_wrapper(method_name: str) -> Callable[..., Any]:
+        def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
+            return _get_method_interceptor(self, method_name)(*args, **kwargs)
+
+        return wrapper
 
     def _get_method_interceptor(self: TMock, name: str) -> MethodInterceptor:
         interceptors: dict[str, MethodInterceptor] = object.__getattribute__(self, "__method_interceptors")
@@ -87,12 +93,9 @@ def tmock(cls: Type[T], extra_fields: list[str] | None = None) -> T:
             raise TMockUnexpectedCallError(f"{cls.__name__}.{name} is read-only")
         setter(value)
 
-    if "__call__" in schema.method_signatures:
-
-        def __call__(self: TMock, *args: Any, **kwargs: Any) -> Any:
-            return _get_method_interceptor(self, "__call__")(*args, **kwargs)
-
-        setattr(TMock, "__call__", __call__)
+    for magic_method in ALLOWED_MAGIC_METHODS:
+        if magic_method in schema.method_signatures:
+            setattr(TMock, magic_method, _create_magic_method_wrapper(magic_method))
 
     instance = object.__new__(TMock)
     TMock.__init__(instance)

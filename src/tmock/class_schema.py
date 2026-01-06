@@ -197,6 +197,15 @@ class FieldDiscovery:
         return Signature(parameters=[value_param], return_annotation=type(None))
 
 
+ALLOWED_MAGIC_METHODS = {
+    "__call__",
+    "__enter__",
+    "__exit__",
+    "__aenter__",
+    "__aexit__",
+}
+
+
 def introspect_class(cls: Type[Any], extra_fields: list[str] | None = None) -> ClassSchema:
     """Analyzes a class and extracts metadata about its members."""
     schema = ClassSchema()
@@ -208,7 +217,8 @@ def introspect_class(cls: Type[Any], extra_fields: list[str] | None = None) -> C
 
     # Discover methods and class/static members
     for name in dir(cls):
-        if (name.startswith("_") and name != "__call__") or name in schema.fields:
+        is_magic_allowed = name in ALLOWED_MAGIC_METHODS
+        if (name.startswith("_") and not is_magic_allowed) or name in schema.fields:
             continue
 
         raw_attr = _get_raw_attribute(cls, name)
