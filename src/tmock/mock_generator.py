@@ -1,6 +1,7 @@
-from typing import Any, Callable, Type, TypeVar
+import inspect
+from typing import Any, Callable, Type, TypeVar, Union, cast, overload
 
-from tmock.class_schema import ALLOWED_MAGIC_METHODS, FieldSchema, introspect_class
+from tmock.class_schema import ALLOWED_MAGIC_METHODS, FieldSchema, introspect_class, resolve_forward_refs
 from tmock.exceptions import TMockUnexpectedCallError
 from tmock.field_ref import FieldRef
 from tmock.interceptor import (
@@ -11,6 +12,7 @@ from tmock.interceptor import (
 )
 
 T = TypeVar("T")
+F = TypeVar("F", bound=Callable[..., Any])
 
 
 def is_tmock(obj: Any) -> bool:
@@ -18,11 +20,62 @@ def is_tmock(obj: Any) -> bool:
     return getattr(type(obj), "_is_tmock", False)
 
 
-def tmock(cls: Type[T], extra_fields: list[str] | None = None) -> T:
+@overload
+def tmock(spec: F) -> F: ...
+
+
+@overload
+def tmock(spec: Type[T], extra_fields: list[str] | None = None) -> T: ...
+
+
+def tmock(spec: Union[Type[T], F], extra_fields: list[str] | None = None) -> Union[T, F]:
+    """
+    Creates a type-safe mock of a class or function.
+
+    Args:
+        spec: The class or function to mock.
+        extra_fields: Optional list of field names to support on the mock
+                     (only for class mocks).
+
+    Returns:
+        A strict mock object adhering to the spec's signature.
+    """
+    if isinstance(spec, type):
+        return _tmock_class(spec, extra_fields)
+    elif callable(spec):
+        if extra_fields is not None:
+            raise TypeError("extra_fields is not supported when mocking a function.")
+        return _tmock_function(spec)
+    else:
+        raise TypeError(f"tmock() requires a class or a function, got {type(spec)}")
+
+
+def _tmock_function(fn: F) -> F:
+    """Mock a function by returning a configured MethodInterceptor."""
+    name = getattr(fn, "__name__", "mock_function")
+    module = getattr(fn, "__module__", "tmock")
+
+    try:
+        sig = inspect.signature(fn)
+        sig = resolve_forward_refs(fn, sig)
+    except ValueError:
+        # Fallback for builtins or weird callables
+        sig = inspect.Signature()
+
+    is_async = inspect.iscoroutinefunction(fn)
+
+    interceptor = MethodInterceptor(name, sig, module, is_async=is_async)
+    return cast(F, interceptor)
+
+
+def _tmock_class(cls: Type[T], extra_fields: list[str] | None = None) -> T:
+    """Implementation of class mocking."""
     schema = introspect_class(cls, extra_fields=extra_fields)
 
     class TMock(cls):  # type: ignore[valid-type, misc]
         _is_tmock = True
+        __name__ = cls.__name__
+        __module__ = cls.__module__
 
         def __init__(self) -> None:
             object.__setattr__(self, "__method_interceptors", {})
