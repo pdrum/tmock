@@ -77,14 +77,14 @@ def config_name(config: PersonConfig) -> str:
 class TestSetterStubbing:
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_stub_setter_allows_assignment(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().set(mock.name, "Alice").returns(None)
 
         mock.name = "Alice"  # Should not raise
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_stub_setter_with_any_matcher(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().set(mock.name, any(str)).returns(None)
 
         mock.name = "Alice"
@@ -93,14 +93,14 @@ class TestSetterStubbing:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_unstubbed_setter_raises(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
 
         with pytest.raises(TMockUnexpectedCallError):
             mock.name = "Alice"
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_setter_with_wrong_value_raises(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().set(mock.name, "Alice").returns(None)
 
         with pytest.raises(TMockUnexpectedCallError):
@@ -108,7 +108,7 @@ class TestSetterStubbing:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_stub_multiple_setters(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().set(mock.name, any(str)).returns(None)
         given().set(mock.age, any(int)).returns(None)
 
@@ -117,7 +117,7 @@ class TestSetterStubbing:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_stub_setter_with_specific_values(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().set(mock.name, "Alice").returns(None)
         given().set(mock.name, "Bob").returns(None)
 
@@ -126,7 +126,7 @@ class TestSetterStubbing:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_later_stub_overrides_earlier_for_same_value(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().set(mock.name, "Alice").returns(None)
         given().set(mock.name, "Alice").returns(None)  # Duplicate stub is fine
 
@@ -145,7 +145,7 @@ class TestSetterStubbing:
 class TestSetterVerification:
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_verify_setter_called_once(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().set(mock.name, any(str)).returns(None)
 
         mock.name = "Alice"
@@ -154,7 +154,7 @@ class TestSetterVerification:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_verify_setter_called_multiple_times(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().set(mock.name, any(str)).returns(None)
 
         mock.name = "Alice"
@@ -165,7 +165,7 @@ class TestSetterVerification:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_verify_setter_with_any_matcher(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().set(mock.name, any(str)).returns(None)
 
         mock.name = "Alice"
@@ -175,14 +175,14 @@ class TestSetterVerification:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_verify_setter_never_called(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().set(mock.name, any(str)).returns(None)
 
         verify().set(mock.name, "Alice").never()
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_verify_setter_fails_when_not_called(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().set(mock.name, any(str)).returns(None)
 
         with pytest.raises(TMockVerificationError):
@@ -190,7 +190,7 @@ class TestSetterVerification:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_verify_setter_with_specific_value(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().set(mock.name, any(str)).returns(None)
 
         mock.name = "Alice"
@@ -202,7 +202,7 @@ class TestSetterVerification:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_verify_setter_called(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().set(mock.name, any(str)).returns(None)
 
         mock.name = "Alice"
@@ -211,7 +211,7 @@ class TestSetterVerification:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_verify_setter_at_least(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().set(mock.name, any(str)).returns(None)
 
         mock.name = "Alice"
@@ -222,7 +222,7 @@ class TestSetterVerification:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_verify_setter_at_most(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().set(mock.name, any(str)).returns(None)
 
         mock.name = "Alice"
@@ -231,7 +231,7 @@ class TestSetterVerification:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_verify_setter_at_least_fails(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().set(mock.name, any(str)).returns(None)
 
         mock.name = "Alice"
@@ -241,7 +241,7 @@ class TestSetterVerification:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_verify_setter_at_most_fails(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().set(mock.name, any(str)).returns(None)
 
         mock.name = "Alice"
@@ -310,7 +310,7 @@ class TestSetterTypeValidation:
         ids=config_name,
     )
     def test_setter_with_wrong_type_value_raises(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
 
         with pytest.raises(TMockStubbingError):
             given().set(mock.name, 123).returns(None)  # name is str, not int
@@ -321,14 +321,14 @@ class TestSetterTypeValidation:
         ids=config_name,
     )
     def test_setter_with_wrong_type_for_int_field(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
 
         with pytest.raises(TMockStubbingError):
             given().set(mock.age, "not an int").returns(None)  # age is int, not str
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_setter_with_correct_type_passes(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().set(mock.name, "valid string").returns(None)
         given().set(mock.age, 42).returns(None)
 
@@ -339,21 +339,21 @@ class TestSetterTypeValidation:
 class TestSetterReturnsValidation:
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_setter_returns_non_none_raises(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
 
         with pytest.raises(TMockStubbingError):
             given().set(mock.name, "Alice").returns("should be None")
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_setter_returns_integer_raises(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
 
         with pytest.raises(TMockStubbingError):
             given().set(mock.name, "Alice").returns(42)
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_setter_returns_none_passes(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().set(mock.name, "Alice").returns(None)
 
         mock.name = "Alice"  # Should not raise
@@ -414,7 +414,7 @@ class TestReadOnlyField:
 class TestSetterEdgeCases:
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_setter_stubbing_does_not_count_as_call(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().set(mock.name, any(str)).returns(None)
 
         # Stubbing should not count as a call
@@ -422,8 +422,8 @@ class TestSetterEdgeCases:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_multiple_mocks_have_independent_setters(self, config):
-        mock1 = tmock(config.cls, config.extra_fields)
-        mock2 = tmock(config.cls, config.extra_fields)
+        mock1 = tmock(config.cls, extra_fields=config.extra_fields)
+        mock2 = tmock(config.cls, extra_fields=config.extra_fields)
 
         given().set(mock1.name, any(str)).returns(None)
         given().set(mock2.name, any(str)).returns(None)
@@ -436,7 +436,7 @@ class TestSetterEdgeCases:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_getter_and_setter_are_independent(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().get(mock.name).returns("Alice")
         given().set(mock.name, any(str)).returns(None)
 

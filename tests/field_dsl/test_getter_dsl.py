@@ -65,14 +65,14 @@ def config_name(config: PersonConfig) -> str:
 class TestGetterStubbing:
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_stub_getter_returns_value(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().get(mock.name).returns("Alice")
 
         assert mock.name == "Alice"
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_stub_multiple_getters(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().get(mock.name).returns("Bob")
         given().get(mock.age).returns(30)
 
@@ -81,14 +81,14 @@ class TestGetterStubbing:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_unstubbed_getter_raises(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
 
         with pytest.raises(TMockUnexpectedCallError):
             _ = mock.name
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_stub_getter_with_different_return_types(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().get(mock.name).returns("Test")
 
         result = mock.name
@@ -97,7 +97,7 @@ class TestGetterStubbing:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_stub_getter_can_be_called_multiple_times(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().get(mock.name).returns("Alice")
 
         assert mock.name == "Alice"
@@ -106,7 +106,7 @@ class TestGetterStubbing:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_later_stub_overrides_earlier(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().get(mock.name).returns("First")
         given().get(mock.name).returns("Second")
 
@@ -125,7 +125,7 @@ class TestGetterStubbing:
 class TestGetterVerification:
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_verify_getter_called_once(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().get(mock.name).returns("Alice")
 
         _ = mock.name
@@ -134,7 +134,7 @@ class TestGetterVerification:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_verify_getter_called_multiple_times(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().get(mock.name).returns("Alice")
 
         _ = mock.name
@@ -145,14 +145,14 @@ class TestGetterVerification:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_verify_getter_never_called(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().get(mock.name).returns("Alice")
 
         verify().get(mock.name).never()
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_verify_getter_fails_when_not_called(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().get(mock.name).returns("Alice")
 
         with pytest.raises(TMockVerificationError):
@@ -160,7 +160,7 @@ class TestGetterVerification:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_verify_getter_fails_with_wrong_count(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().get(mock.name).returns("Alice")
 
         _ = mock.name
@@ -171,7 +171,7 @@ class TestGetterVerification:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_verify_different_getters_independently(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().get(mock.name).returns("Alice")
         given().get(mock.age).returns(25)
 
@@ -184,7 +184,7 @@ class TestGetterVerification:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_verify_getter_called(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().get(mock.name).returns("Alice")
 
         _ = mock.name
@@ -193,7 +193,7 @@ class TestGetterVerification:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_verify_getter_at_least(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().get(mock.name).returns("Alice")
 
         _ = mock.name
@@ -204,7 +204,7 @@ class TestGetterVerification:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_verify_getter_at_most(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().get(mock.name).returns("Alice")
 
         _ = mock.name
@@ -213,7 +213,7 @@ class TestGetterVerification:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_verify_getter_at_least_fails(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().get(mock.name).returns("Alice")
 
         _ = mock.name
@@ -223,7 +223,7 @@ class TestGetterVerification:
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_verify_getter_at_most_fails(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().get(mock.name).returns("Alice")
 
         _ = mock.name
@@ -292,7 +292,7 @@ class TestGetterTypeValidation:
         ids=config_name,
     )
     def test_getter_returns_wrong_type_raises(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
 
         with pytest.raises(TMockStubbingError):
             given().get(mock.name).returns(123)  # name is str, not int
@@ -303,14 +303,14 @@ class TestGetterTypeValidation:
         ids=config_name,
     )
     def test_getter_returns_wrong_type_for_int_field(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
 
         with pytest.raises(TMockStubbingError):
             given().get(mock.age).returns("not an int")  # age is int, not str
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_getter_returns_correct_type_passes(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().get(mock.name).returns("valid string")
         given().get(mock.age).returns(42)
 
@@ -321,15 +321,15 @@ class TestGetterTypeValidation:
 class TestGetterEdgeCases:
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_getter_stubbing_does_not_count_as_call(self, config):
-        mock = tmock(config.cls, config.extra_fields)
+        mock = tmock(config.cls, extra_fields=config.extra_fields)
         given().get(mock.name).returns("Alice")
 
         verify().get(mock.name).never()
 
     @pytest.mark.parametrize("config", PERSON_CONFIGS, ids=config_name)
     def test_multiple_mocks_have_independent_getters(self, config):
-        mock1 = tmock(config.cls, config.extra_fields)
-        mock2 = tmock(config.cls, config.extra_fields)
+        mock1 = tmock(config.cls, extra_fields=config.extra_fields)
+        mock2 = tmock(config.cls, extra_fields=config.extra_fields)
 
         given().get(mock1.name).returns("Alice")
         given().get(mock2.name).returns("Bob")
