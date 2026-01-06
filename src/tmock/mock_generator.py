@@ -27,7 +27,7 @@ def tmock(spec: Type[T], *, extra_fields: list[str] | None = None) -> T: ...
 def tmock(spec: Callable[..., Any]) -> Any: ...
 
 
-def tmock(spec: Type[T] | Callable[..., Any], extra_fields: list[str] | None = None) -> T | MethodInterceptor:
+def tmock(spec: Type[T] | Callable[..., Any], *, extra_fields: list[str] | None = None) -> T | MethodInterceptor:
     """
     Creates a type-safe mock of a class or function.
 
