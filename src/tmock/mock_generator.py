@@ -1,5 +1,5 @@
 import inspect
-from typing import Any, Callable, Type, TypeVar, Union, cast, overload
+from typing import Any, Callable, Type, TypeVar, overload
 
 from tmock.class_schema import ALLOWED_MAGIC_METHODS, FieldSchema, introspect_class, resolve_forward_refs
 from tmock.exceptions import TMockUnexpectedCallError
@@ -12,7 +12,6 @@ from tmock.interceptor import (
 )
 
 T = TypeVar("T")
-F = TypeVar("F", bound=Callable[..., Any])
 
 
 def is_tmock(obj: Any) -> bool:
@@ -21,14 +20,14 @@ def is_tmock(obj: Any) -> bool:
 
 
 @overload
-def tmock(spec: F) -> F: ...
+def tmock(spec: Type[T], *, extra_fields: list[str] | None = None) -> T: ...
 
 
 @overload
-def tmock(spec: Type[T], extra_fields: list[str] | None = None) -> T: ...
+def tmock(spec: Callable[..., Any]) -> Any: ...
 
 
-def tmock(spec: Union[Type[T], F], extra_fields: list[str] | None = None) -> Union[T, F]:
+def tmock(spec: Type[T] | Callable[..., Any], extra_fields: list[str] | None = None) -> T | MethodInterceptor:
     """
     Creates a type-safe mock of a class or function.
 
@@ -50,7 +49,7 @@ def tmock(spec: Union[Type[T], F], extra_fields: list[str] | None = None) -> Uni
         raise TypeError(f"tmock() requires a class or a function, got {type(spec)}")
 
 
-def _tmock_function(fn: F) -> F:
+def _tmock_function(fn: Callable[..., Any]) -> MethodInterceptor:
     """Mock a function by returning a configured MethodInterceptor."""
     name = getattr(fn, "__name__", "mock_function")
     module = getattr(fn, "__module__", "tmock")
@@ -65,7 +64,7 @@ def _tmock_function(fn: F) -> F:
     is_async = inspect.iscoroutinefunction(fn)
 
     interceptor = MethodInterceptor(name, sig, module, is_async=is_async)
-    return cast(F, interceptor)
+    return interceptor
 
 
 def _tmock_class(cls: Type[T], extra_fields: list[str] | None = None) -> T:
