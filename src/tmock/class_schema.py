@@ -206,6 +206,10 @@ ALLOWED_MAGIC_METHODS = {
     "__getitem__",
     "__setitem__",
     "__delitem__",
+    "__iter__",
+    "__next__",
+    "__aiter__",
+    "__anext__",
 }
 
 
