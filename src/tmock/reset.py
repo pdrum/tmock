@@ -1,6 +1,7 @@
 from typing import Any
 
-from tmock.interceptor import MethodInterceptor
+from tmock.exceptions import TMockResetError
+from tmock.interceptor import Interceptor, MethodInterceptor
 
 
 def reset(mock: Any) -> None:
@@ -35,17 +36,23 @@ def reset_behaviors(mock: Any) -> None:
         interceptor.reset_behaviors()
 
 
-def _get_all_interceptors(mock: Any) -> list[MethodInterceptor]:
+def _get_all_interceptors(mock: Any) -> list[Interceptor]:
     """Get all interceptors from a mock (methods, getters, setters)."""
-    interceptors: list[MethodInterceptor] = []
+    if isinstance(mock, Interceptor):
+        return [mock]
 
-    method_interceptors: dict[str, MethodInterceptor] = object.__getattribute__(mock, "__method_interceptors")
-    interceptors.extend(method_interceptors.values())
+    interceptors: list[Interceptor] = []
 
-    getter_interceptors: dict[str, MethodInterceptor] = object.__getattribute__(mock, "__field_getter_interceptors")
-    interceptors.extend(getter_interceptors.values())
+    try:
+        method_interceptors: dict[str, MethodInterceptor] = object.__getattribute__(mock, "__method_interceptors")
+        interceptors.extend(method_interceptors.values())
 
-    setter_interceptors: dict[str, MethodInterceptor] = object.__getattribute__(mock, "__field_setter_interceptors")
-    interceptors.extend(setter_interceptors.values())
+        getter_interceptors: dict[str, MethodInterceptor] = object.__getattribute__(mock, "__field_getter_interceptors")
+        interceptors.extend(getter_interceptors.values())
+
+        setter_interceptors: dict[str, MethodInterceptor] = object.__getattribute__(mock, "__field_setter_interceptors")
+        interceptors.extend(setter_interceptors.values())
+    except AttributeError:
+        raise TMockResetError(f"Object {mock!r} is not a valid tmock object or interceptor.")
 
     return interceptors
