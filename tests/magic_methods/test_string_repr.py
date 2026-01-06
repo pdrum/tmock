@@ -25,8 +25,6 @@ class SimpleObject:
 
 
 class TestStringRepresentation:
-    # --- Strict Interception (when defined) ---
-
     def test_str_stubbing(self):
         mock = tmock(User)
         given().call(mock.__str__()).returns("MockedUser")
@@ -66,8 +64,6 @@ class TestStringRepresentation:
         with pytest.raises(TMockStubbingError) as exc:
             given().call(mock.__str__()).returns(123)
         assert "Invalid return type" in str(exc.value)
-
-    # --- Fallback (when NOT defined) ---
 
     def test_fallback_str(self):
         """If not defined, str(mock) should use TMock's default repr."""

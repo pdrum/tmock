@@ -155,6 +155,11 @@ class Interceptor(ABC):
         """Clear all stubs."""
         self._stubs.clear()
 
+    def reset(self) -> None:
+        """Reset both interactions and behaviors."""
+        self.reset_interactions()
+        self.reset_behaviors()
+
     def validate_return_type(self, value: Any) -> None:
         """Validate that a value matches the method's return type annotation."""
         self._validate_return_type(value)
