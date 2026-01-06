@@ -197,6 +197,35 @@ class FieldDiscovery:
         return Signature(parameters=[value_param], return_annotation=type(None))
 
 
+ALLOWED_MAGIC_METHODS = {
+    "__call__",
+    "__enter__",
+    "__exit__",
+    "__aenter__",
+    "__aexit__",
+    "__getitem__",
+    "__setitem__",
+    "__delitem__",
+    "__iter__",
+    "__next__",
+    "__aiter__",
+    "__anext__",
+    "__len__",
+    "__contains__",
+    "__bool__",
+    "__hash__",
+    "__eq__",
+    "__ne__",
+    "__lt__",
+    "__le__",
+    "__gt__",
+    "__ge__",
+    "__str__",
+    "__repr__",
+    "__format__",
+}
+
+
 def introspect_class(cls: Type[Any], extra_fields: list[str] | None = None) -> ClassSchema:
     """Analyzes a class and extracts metadata about its members."""
     schema = ClassSchema()
@@ -208,11 +237,16 @@ def introspect_class(cls: Type[Any], extra_fields: list[str] | None = None) -> C
 
     # Discover methods and class/static members
     for name in dir(cls):
-        if name.startswith("_") or name in schema.fields:
+        is_magic_allowed = name in ALLOWED_MAGIC_METHODS
+        if (name.startswith("_") and not is_magic_allowed) or name in schema.fields:
             continue
 
         raw_attr = _get_raw_attribute(cls, name)
         if raw_attr is None:
+            continue
+
+        # Skip magic methods that are just the default object implementation
+        if is_magic_allowed and _default_impl_is_inherited_from_object(cls, name):
             continue
 
         if isinstance(raw_attr, (classmethod, staticmethod)):
@@ -223,6 +257,14 @@ def introspect_class(cls: Type[Any], extra_fields: list[str] | None = None) -> C
                 schema.async_methods.add(name)
 
     return schema
+
+
+def _default_impl_is_inherited_from_object(cls: Type[Any], name: str) -> bool:
+    """Returns True if the attribute is resolved from the 'object' class directly."""
+    for base in cls.__mro__:
+        if name in base.__dict__:
+            return base is object
+    return False
 
 
 def _apply_extra_fields_if_not_discovered(extra_fields, schema):
